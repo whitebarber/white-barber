@@ -50,12 +50,12 @@
 
   /* Formularios */
   label { display: block; font-size: 14px; color: var(--plata); margin: 18px 0 6px; }
-  input {
+  input, select {
     width: 100%; font: inherit; color: var(--blanco);
     background: var(--superficie); border: 1px solid var(--linea);
     border-radius: 10px; padding: 14px 14px;
   }
-  input:focus { outline: none; border-color: var(--oro); }
+  input:focus, select:focus { outline: none; border-color: var(--oro); }
   button { font: inherit; cursor: pointer; }
   button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
   .btn {
@@ -165,6 +165,36 @@
   .qr-caja img, .qr-caja canvas { display: block; width: 100% !important; height: auto !important; }
   .qr-ayuda { color: var(--plata); font-size: 14px; text-align: center; }
 
+  /* Administración */
+  .nav-admin { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 20px; padding-bottom: 4px; }
+  .pestana {
+    background: none; border: 1px solid var(--linea); color: var(--plata);
+    border-radius: 999px; padding: 8px 14px; white-space: nowrap; font-size: 14px;
+  }
+  .pestana.activa { border-color: var(--oro); color: var(--oro); }
+  .cifras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cifra { background: var(--superficie); border-radius: 12px; padding: 16px; }
+  .cifra strong { display: block; font-family: var(--serif); font-size: 34px; line-height: 1.1; color: var(--oro); }
+  .cifra span { font-size: 13px; color: var(--plata); }
+  .filas { list-style: none; padding: 0; margin: 0; }
+  .fila {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 14px 0; border-bottom: 1px solid var(--linea);
+  }
+  .fila small { display: block; color: var(--plata); font-size: 13px; }
+  .fila .dato { color: var(--oro); font-family: var(--serif); font-size: 22px; }
+  .btn-chico {
+    border: 1px solid var(--oro); background: none; color: var(--oro);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; white-space: nowrap;
+  }
+  .btn-chico.peligro { border-color: var(--error); color: var(--error); }
+  .bloque { background: var(--superficie); border-radius: 12px; padding: 4px 16px 16px; margin-top: 12px; }
+  .bloque .acciones { display: flex; gap: 10px; margin-top: 14px; }
+  .bloque-titulo { font-family: var(--serif); font-size: 20px; color: var(--oro); margin: 12px 0 0; }
+  .ayuda { color: var(--plata); font-size: 14px; }
+  .admin-opciones { margin-top: 32px; }
+  .btn-peligro { background: transparent; color: var(--error); border-color: var(--error); }
+
   /* Aviso */
   .aviso {
     position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
@@ -196,7 +226,7 @@
 <section id="pantalla-panel" class="pantalla contenedor" hidden>
   <header class="encabezado">
     <span class="marca">WHITE BARBER</span>
-    <div class="usuario"><span id="nombre-usuario"></span><br><button class="link" id="btn-salir" type="button">Salir</button></div>
+    <div class="usuario"><span id="nombre-usuario"></span><br><button class="link" id="btn-admin" type="button" hidden>Administración</button> &nbsp; <button class="link" id="btn-salir" type="button">Salir</button></div>
   </header>
   <div class="fila-busqueda">
     <input id="buscador" type="search" placeholder="Buscar por nombre o teléfono" aria-label="Buscar cliente">
@@ -237,6 +267,98 @@
   <button class="btn btn-borde" id="btn-qr" type="button">Ver QR y enviar tarjeta</button>
   <h2>Cortes de esta tarjeta</h2>
   <ul class="historial" id="historial"></ul>
+
+  <div class="admin-opciones" id="admin-cliente" hidden>
+    <h2>Opciones de administrador</h2>
+    <button class="btn btn-borde" id="btn-anular" type="button">Anular último corte</button>
+    <button class="btn btn-borde" id="btn-editar" type="button">Editar datos del cliente</button>
+    <button class="btn btn-peligro" id="btn-eliminar" type="button">Eliminar cliente</button>
+  </div>
+</section>
+
+<!-- PANTALLA: ADMINISTRACIÓN -->
+<section id="pantalla-admin" class="pantalla contenedor" hidden>
+  <header class="encabezado">
+    <button class="link" type="button" data-volver>Volver</button>
+    <span class="marca">WHITE BARBER</span>
+  </header>
+  <nav class="nav-admin" aria-label="Secciones de administración">
+    <button class="pestana activa" type="button" data-pestana="resumen">Resumen</button>
+    <button class="pestana" type="button" data-pestana="movimientos">Movimientos</button>
+    <button class="pestana" type="button" data-pestana="equipo">Equipo</button>
+    <button class="pestana" type="button" data-pestana="premios">Premios</button>
+    <button class="pestana" type="button" data-pestana="reglas">Reglas</button>
+  </nav>
+
+  <div class="panel-admin" id="admin-resumen">
+    <div class="cifras">
+      <div class="cifra"><strong id="cifra-hoy">–</strong><span>Cortes hoy</span></div>
+      <div class="cifra"><strong id="cifra-mes">–</strong><span>Cortes este mes</span></div>
+      <div class="cifra"><strong id="cifra-clientes">–</strong><span>Clientes registrados</span></div>
+      <div class="cifra"><strong id="cifra-premios">–</strong><span>Premios aplicados este mes</span></div>
+    </div>
+    <h2>Cortes por barbero este mes</h2>
+    <ul class="filas" id="lista-por-barbero"></ul>
+  </div>
+
+  <div class="panel-admin" id="admin-movimientos" hidden>
+    <label for="filtro-barbero">Barbero</label>
+    <select id="filtro-barbero"><option value="">Todos</option></select>
+    <h2>Últimos cortes</h2>
+    <ul class="filas" id="lista-movimientos"></ul>
+    <h2>Cortes anulados</h2>
+    <ul class="filas" id="lista-anulaciones"></ul>
+  </div>
+
+  <div class="panel-admin" id="admin-equipo" hidden>
+    <ul class="filas" id="lista-equipo"></ul>
+    <h2>Agregar barbero</h2>
+    <p class="ayuda">1) Creá su usuario en Supabase: Authentication → Users → Add user, con “Auto Confirm User”.<br>
+    2) Completá acá el mismo email y su nombre.</p>
+    <form id="form-barbero">
+      <label for="barbero-email">Email</label>
+      <input id="barbero-email" type="email" autocomplete="off" required>
+      <label for="barbero-nombre">Nombre</label>
+      <input id="barbero-nombre" autocomplete="off" autocapitalize="words" required>
+      <label for="barbero-rol">Rol</label>
+      <select id="barbero-rol">
+        <option value="barbero">Barbero</option>
+        <option value="admin">Administrador</option>
+      </select>
+      <div class="espacio"></div>
+      <button class="btn btn-oro" id="btn-guardar-barbero" type="submit">Agregar al equipo</button>
+      <p class="mensaje-error" id="barbero-error" role="alert"></p>
+    </form>
+  </div>
+
+  <div class="panel-admin" id="admin-premios" hidden>
+    <p class="ayuda">Los cambios valen desde el próximo corte que se registre.</p>
+    <div id="lista-premios-admin"></div>
+    <h2>Agregar premio</h2>
+    <form id="form-premio">
+      <label for="premio-posicion">Número de corte (1 a 10)</label>
+      <input id="premio-posicion" type="number" min="1" max="10" inputmode="numeric" required>
+      <label for="premio-titulo">Premio</label>
+      <input id="premio-titulo" placeholder="Ej: 15% de descuento" required>
+      <label for="premio-descripcion">Descripción (opcional)</label>
+      <input id="premio-descripcion" placeholder="Ej: En tu 4to corte">
+      <div class="espacio"></div>
+      <button class="btn btn-oro" type="submit">Agregar premio</button>
+      <p class="mensaje-error" id="premio-error" role="alert"></p>
+    </form>
+  </div>
+
+  <div class="panel-admin" id="admin-reglas" hidden>
+    <form id="form-reglas">
+      <label for="regla-horas">Horas mínimas entre dos cortes del mismo cliente</label>
+      <input id="regla-horas" type="number" min="0" max="72" inputmode="numeric" required>
+      <label for="regla-dias">Días sin venir para que venza la tarjeta</label>
+      <input id="regla-dias" type="number" min="7" max="365" inputmode="numeric" required>
+      <div class="espacio"></div>
+      <button class="btn btn-oro" type="submit">Guardar reglas</button>
+      <p class="mensaje-error" id="reglas-error" role="alert"></p>
+    </form>
+  </div>
 </section>
 
 <!-- VENTANA: CONFIRMAR CORTE -->
@@ -259,6 +381,33 @@
     <button class="btn btn-borde" id="qr-copiar" type="button">Copiar enlace</button>
     <button class="btn btn-borde" id="qr-cerrar" type="button">Cerrar</button>
   </div>
+</dialog>
+
+<!-- VENTANA: CONFIRMAR ACCIÓN -->
+<dialog id="dialogo-confirmar">
+  <p id="confirmar-texto"></p>
+  <div class="botones">
+    <button class="btn btn-oro" id="confirmar-si" type="button">Confirmar</button>
+    <button class="btn btn-borde" id="confirmar-no" type="button">Cancelar</button>
+  </div>
+</dialog>
+
+<!-- VENTANA: EDITAR CLIENTE -->
+<dialog id="dialogo-editar">
+  <p class="qr-titulo">Editar cliente</p>
+  <form id="form-editar">
+    <label for="editar-nombre">Nombre</label>
+    <input id="editar-nombre" autocomplete="off" required>
+    <label for="editar-apellido">Apellido</label>
+    <input id="editar-apellido" autocomplete="off" required>
+    <label for="editar-telefono">Teléfono</label>
+    <input id="editar-telefono" type="tel" inputmode="numeric" required>
+    <p class="mensaje-error" id="editar-error" role="alert"></p>
+    <div class="botones">
+      <button class="btn btn-oro" type="submit">Guardar cambios</button>
+      <button class="btn btn-borde" id="editar-cancelar" type="button">Cancelar</button>
+    </div>
+  </form>
 </dialog>
 
 <div class="aviso" id="aviso" role="status" hidden></div>
@@ -309,6 +458,24 @@ function tarjetaAbierta(cliente) {
 function enlaceTarjeta(codigo) {
   return new URL('tarjeta.html?c=' + codigo, location.href).href;
 }
+function fechaHora(f) {
+  return new Date(f).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function esAdmin() { return yo && yo.rol === 'admin'; }
+function confirmar(texto, boton = 'Confirmar') {
+  return new Promise((resolver) => {
+    $('confirmar-texto').textContent = texto;
+    $('confirmar-si').textContent = boton;
+    const d = $('dialogo-confirmar');
+    const cerrar = (valor) => {
+      $('confirmar-si').onclick = null; $('confirmar-no').onclick = null;
+      d.close(); resolver(valor);
+    };
+    $('confirmar-si').onclick = () => cerrar(true);
+    $('confirmar-no').onclick = () => cerrar(false);
+    d.showModal();
+  });
+}
 function numeroWhatsApp(telefono) {
   const d = String(telefono).replace(/\D/g, '');
   if (d.startsWith('54')) return d;
@@ -339,6 +506,7 @@ async function entrar(usuario) {
   }
   yo = data;
   $('nombre-usuario').textContent = data.nombre;
+  $('btn-admin').hidden = !esAdmin();
   const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
   premios = p.data || [];
 
@@ -474,6 +642,7 @@ function dibujarCliente() {
       ${n}${premio ? `<small>${esc(etiquetaPremio(premio))}</small>` : ''}</div>`;
   }
   selloNuevo = null;
+  $('admin-cliente').hidden = !esAdmin();
 
   $('tarjeta').innerHTML = `<div class="membresia">
     <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${t.numero}</span></div>
@@ -567,6 +736,256 @@ $('qr-copiar').addEventListener('click', async () => {
   }
 });
 $('qr-cerrar').addEventListener('click', () => $('dialogo-qr').close());
+
+// ---------- Opciones de administrador en la tarjeta ----------
+$('btn-anular').addEventListener('click', async () => {
+  const c = clienteActual;
+  const ok = await confirmar(`¿Anular el último corte de ${c.nombre} ${c.apellido}? Se borra ese casillero y, si tenía premio, vuelve a quedar pendiente. Queda registrado en Movimientos.`, 'Sí, anular');
+  if (!ok) return;
+  const { data, error } = await db.rpc('anular_ultimo_corte', { p_cliente_id: c.id });
+  if (error) { avisar(error.message, true); return; }
+  avisar(`Se anuló el corte N° ${data.posicion} de la tarjeta N° ${data.tarjeta}.`);
+  await abrirCliente(c.id);
+});
+
+$('btn-editar').addEventListener('click', () => {
+  const c = clienteActual;
+  $('editar-nombre').value = c.nombre;
+  $('editar-apellido').value = c.apellido;
+  $('editar-telefono').value = c.telefono;
+  $('editar-error').textContent = '';
+  $('dialogo-editar').showModal();
+});
+$('editar-cancelar').addEventListener('click', () => $('dialogo-editar').close());
+$('form-editar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const telefono = $('editar-telefono').value.replace(/\D/g, '');
+  if (telefono.length < 8) { $('editar-error').textContent = 'El teléfono debe tener al menos 8 números.'; return; }
+  const capital = (t) => t.trim().toLowerCase().replace(/(^|\s)\S/g, (l) => l.toUpperCase());
+  const { error } = await db.from('clientes').update({
+    nombre: capital($('editar-nombre').value),
+    apellido: capital($('editar-apellido').value),
+    telefono,
+  }).eq('id', clienteActual.id);
+  if (error) {
+    $('editar-error').textContent = error.code === '23505' ? 'Ya existe otro cliente con ese teléfono.' : error.message;
+    return;
+  }
+  $('dialogo-editar').close();
+  avisar('Datos actualizados.');
+  await abrirCliente(clienteActual.id);
+});
+
+$('btn-eliminar').addEventListener('click', async () => {
+  const c = clienteActual;
+  const ok = await confirmar(`¿Eliminar a ${c.nombre} ${c.apellido}? Se borran su tarjeta, sus cortes y sus premios. Esto no se puede deshacer.`, 'Sí, eliminar');
+  if (!ok) return;
+  const { error } = await db.from('clientes').delete().eq('id', c.id);
+  if (error) { avisar(error.message, true); return; }
+  avisar('Cliente eliminado.');
+  mostrar('pantalla-panel');
+  buscar($('buscador').value);
+});
+
+// ---------- Administración ----------
+$('btn-admin').addEventListener('click', () => {
+  mostrar('pantalla-admin');
+  abrirPestana('resumen');
+});
+
+document.querySelectorAll('[data-pestana]').forEach((b) =>
+  b.addEventListener('click', () => abrirPestana(b.dataset.pestana)));
+
+function abrirPestana(nombre) {
+  document.querySelectorAll('[data-pestana]').forEach((b) =>
+    b.classList.toggle('activa', b.dataset.pestana === nombre));
+  document.querySelectorAll('.panel-admin').forEach((p) => { p.hidden = p.id !== 'admin-' + nombre; });
+  ({ resumen: cargarResumen, movimientos: cargarMovimientos, equipo: cargarEquipo,
+     premios: cargarPremiosAdmin, reglas: cargarReglas })[nombre]();
+}
+
+async function cargarResumen() {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const mes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const contar = (tabla, desde) => {
+    let q = db.from(tabla).select('*', { count: 'exact', head: true });
+    if (desde) q = q.gte('fecha', desde.toISOString());
+    return q;
+  };
+  const [rHoy, rMes, rCli, rPre, rBar] = await Promise.all([
+    contar('cortes', hoy), contar('cortes', mes),
+    db.from('clientes').select('*', { count: 'exact', head: true }),
+    contar('canjes', mes),
+    db.from('cortes').select('barbero:personal(nombre)').gte('fecha', mes.toISOString()).limit(5000),
+  ]);
+  $('cifra-hoy').textContent = rHoy.count ?? '–';
+  $('cifra-mes').textContent = rMes.count ?? '–';
+  $('cifra-clientes').textContent = rCli.count ?? '–';
+  $('cifra-premios').textContent = rPre.count ?? '–';
+
+  const conteo = {};
+  (rBar.data || []).forEach((x) => {
+    const n = x.barbero ? x.barbero.nombre : 'Sin datos';
+    conteo[n] = (conteo[n] || 0) + 1;
+  });
+  const filas = Object.entries(conteo).sort((a, b) => b[1] - a[1]);
+  $('lista-por-barbero').innerHTML = filas.length
+    ? filas.map(([n, c]) => `<li class="fila"><span>${esc(n)}</span><span class="dato">${c}</span></li>`).join('')
+    : '<li class="fila"><span class="ayuda">Todavía no hay cortes este mes.</span></li>';
+}
+
+async function cargarMovimientos() {
+  const filtro = $('filtro-barbero');
+  if (filtro.options.length === 1) {
+    const { data } = await db.from('personal').select('id, nombre').order('nombre');
+    (data || []).forEach((p) => filtro.add(new Option(p.nombre, p.id)));
+  }
+  let q = db.from('cortes')
+    .select('posicion, fecha, barbero:personal(nombre), tarjeta:tarjetas(numero, cliente:clientes(nombre, apellido))')
+    .order('fecha', { ascending: false }).limit(50);
+  if (filtro.value) q = q.eq('barbero_id', filtro.value);
+  const [rCortes, rAnul] = await Promise.all([
+    q,
+    db.from('anulaciones')
+      .select('posicion, tarjeta_numero, fecha, cliente:clientes(nombre, apellido), admin:personal(nombre)')
+      .order('fecha', { ascending: false }).limit(20),
+  ]);
+  const cortes = rCortes.data || [];
+  $('lista-movimientos').innerHTML = cortes.length
+    ? cortes.map((m) => {
+        const cl = m.tarjeta && m.tarjeta.cliente;
+        return `<li class="fila"><span>${cl ? esc(cl.nombre + ' ' + cl.apellido) : 'Cliente'}
+          <small>${fechaHora(m.fecha)} · por ${esc(m.barbero ? m.barbero.nombre : '—')}</small></span>
+          <span class="ayuda">Corte ${m.posicion} · T${m.tarjeta ? m.tarjeta.numero : ''}</span></li>`;
+      }).join('')
+    : '<li class="fila"><span class="ayuda">No hay cortes registrados.</span></li>';
+
+  const anul = rAnul.data || [];
+  $('lista-anulaciones').innerHTML = anul.length
+    ? anul.map((a) => `<li class="fila"><span>${a.cliente ? esc(a.cliente.nombre + ' ' + a.cliente.apellido) : 'Cliente eliminado'}
+        <small>${fechaHora(a.fecha)} · anulado por ${esc(a.admin ? a.admin.nombre : '—')}</small></span>
+        <span class="ayuda">Corte ${a.posicion} · T${a.tarjeta_numero}</span></li>`).join('')
+    : '<li class="fila"><span class="ayuda">No hay cortes anulados.</span></li>';
+}
+$('filtro-barbero').addEventListener('change', cargarMovimientos);
+
+async function cargarEquipo() {
+  const { data, error } = await db.from('personal').select('id, nombre, rol, activo').order('nombre');
+  if (error) { avisar('No se pudo cargar el equipo.', true); return; }
+  $('lista-equipo').innerHTML = data.map((p) => `<li class="fila">
+    <span>${esc(p.nombre)}<small>${p.rol === 'admin' ? 'Administrador' : 'Barbero'} · ${p.activo ? 'Activo' : 'Dado de baja'}</small></span>
+    ${p.id === yo.id ? '<span class="ayuda">Vos</span>'
+      : `<button class="btn-chico ${p.activo ? 'peligro' : ''}" type="button" data-persona="${p.id}" data-activo="${p.activo}">${p.activo ? 'Dar de baja' : 'Reactivar'}</button>`}
+  </li>`).join('');
+}
+$('lista-equipo').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-persona]');
+  if (!b) return;
+  const activar = b.dataset.activo !== 'true';
+  if (!activar) {
+    const ok = await confirmar('¿Dar de baja a esta persona? Ya no va a poder entrar al panel. Sus cortes registrados se conservan.', 'Sí, dar de baja');
+    if (!ok) return;
+  }
+  const { error } = await db.from('personal').update({ activo: activar }).eq('id', b.dataset.persona);
+  if (error) { avisar(error.message, true); return; }
+  avisar(activar ? 'Reactivado.' : 'Dado de baja.');
+  cargarEquipo();
+});
+$('form-barbero').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('barbero-error').textContent = '';
+  $('btn-guardar-barbero').disabled = true;
+  const { data, error } = await db.rpc('agregar_barbero', {
+    p_email: $('barbero-email').value,
+    p_nombre: $('barbero-nombre').value,
+    p_rol: $('barbero-rol').value,
+  });
+  $('btn-guardar-barbero').disabled = false;
+  if (error) { $('barbero-error').textContent = error.message; return; }
+  $('form-barbero').reset();
+  avisar(`${data.nombre} ya puede entrar al panel.`);
+  $('filtro-barbero').length = 1;
+  cargarEquipo();
+});
+
+async function recargarPremios() {
+  const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
+  premios = p.data || [];
+}
+async function cargarPremiosAdmin() {
+  const { data, error } = await db.from('premios').select('*').order('posicion');
+  if (error) { avisar('No se pudieron cargar los premios.', true); return; }
+  $('lista-premios-admin').innerHTML = data.length ? data.map((p) => `<div class="bloque" data-premio="${p.posicion}">
+    <p class="bloque-titulo">Corte N° ${p.posicion}</p>
+    <label>Premio</label><input data-campo="titulo" value="${esc(p.titulo)}">
+    <label>Descripción</label><input data-campo="descripcion" value="${esc(p.descripcion || '')}">
+    <div class="acciones">
+      <button class="btn-chico" type="button" data-accion="guardar">Guardar</button>
+      <button class="btn-chico peligro" type="button" data-accion="quitar">Quitar</button>
+    </div>
+  </div>`).join('') : '<p class="ayuda">No hay premios cargados.</p>';
+}
+$('lista-premios-admin').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-accion]');
+  if (!b) return;
+  const bloque = b.closest('[data-premio]');
+  const posicion = Number(bloque.dataset.premio);
+  if (b.dataset.accion === 'guardar') {
+    const titulo = bloque.querySelector('[data-campo="titulo"]').value.trim();
+    if (!titulo) { avisar('El premio no puede quedar vacío.', true); return; }
+    const { error } = await db.from('premios').update({
+      titulo, descripcion: bloque.querySelector('[data-campo="descripcion"]').value.trim() || null,
+    }).eq('posicion', posicion);
+    if (error) { avisar(error.message, true); return; }
+    avisar('Premio guardado.');
+  } else {
+    const ok = await confirmar(`¿Quitar el premio del corte N° ${posicion}?`, 'Sí, quitar');
+    if (!ok) return;
+    const { error } = await db.from('premios').delete().eq('posicion', posicion);
+    if (error) { avisar(error.message, true); return; }
+    avisar('Premio quitado.');
+  }
+  await recargarPremios();
+  cargarPremiosAdmin();
+});
+$('form-premio').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('premio-error').textContent = '';
+  const posicion = Number($('premio-posicion').value);
+  if (!(posicion >= 1 && posicion <= 10)) { $('premio-error').textContent = 'El número de corte va del 1 al 10.'; return; }
+  const { error } = await db.from('premios').insert({
+    posicion, titulo: $('premio-titulo').value.trim(),
+    descripcion: $('premio-descripcion').value.trim() || null,
+  });
+  if (error) {
+    $('premio-error').textContent = error.code === '23505' ? 'Ese corte ya tiene un premio. Editalo arriba.' : error.message;
+    return;
+  }
+  $('form-premio').reset();
+  avisar('Premio agregado.');
+  await recargarPremios();
+  cargarPremiosAdmin();
+});
+
+async function cargarReglas() {
+  const { data } = await db.from('configuracion').select('*').eq('id', 1).single();
+  if (data) {
+    $('regla-horas').value = data.horas_entre_cortes;
+    $('regla-dias').value = data.dias_vencimiento;
+  }
+}
+$('form-reglas').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('reglas-error').textContent = '';
+  const horas = Number($('regla-horas').value);
+  const dias = Number($('regla-dias').value);
+  if (!(horas >= 0 && horas <= 72)) { $('reglas-error').textContent = 'Las horas van de 0 a 72.'; return; }
+  if (!(dias >= 7 && dias <= 365)) { $('reglas-error').textContent = 'Los días van de 7 a 365.'; return; }
+  const { error } = await db.from('configuracion')
+    .update({ horas_entre_cortes: horas, dias_vencimiento: dias }).eq('id', 1);
+  if (error) { $('reglas-error').textContent = error.message; return; }
+  avisar('Reglas guardadas.');
+});
 
 iniciar().catch((e) => {
   mostrar('pantalla-login');

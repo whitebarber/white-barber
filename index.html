@@ -10,8 +10,8 @@
 <script>
 // ================= CONFIGURACIÓN =================
 // Reemplazá lo que está entre comillas por tus dos datos de Supabase.
-const SUPABASE_URL = 'https://qktxrfvkurxwkzcrflds.supabase.co;
-const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
+const SUPABASE_URL = 'https://qktxrfvkurxwkzcrflds.supabase.co';
+const SUPABASE_KEY = 'PEGAR_PUBLISHABLE_KEY';
 // =================================================
 </script>
 
@@ -170,7 +170,7 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
 <body>
 
 <!-- PANTALLA: INGRESO -->
-<section id="pantalla-login" class="pantalla contenedor" hidden>
+<section id="pantalla-login" class="pantalla contenedor">
   <h1 class="marca marca-grande">WHITE BARBER</h1>
   <p class="bajada">Panel del equipo</p>
   <form id="form-login">
@@ -243,6 +243,10 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
 <div class="aviso" id="aviso" role="status" hidden></div>
 
 <script>
+if (typeof supabase === 'undefined') {
+  document.getElementById('login-error').textContent = 'No se pudo cargar la conexión. Revisá internet y recargá la página.';
+  throw new Error('Falta la librería de Supabase');
+}
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
 
@@ -283,7 +287,7 @@ function tarjetaAbierta(cliente) {
 
 // ---------- Inicio y sesión ----------
 async function iniciar() {
-  if (SUPABASE_URL.startsWith('PEGAR') || SUPABASE_KEY.startsWith('PEGAR')) {
+  if (!SUPABASE_URL.startsWith('https://') || SUPABASE_KEY.startsWith('PEGAR')) {
     mostrar('pantalla-login');
     $('login-error').textContent = 'Falta configurar los datos de Supabase en el archivo.';
     return;
@@ -315,11 +319,11 @@ $('form-login').addEventListener('submit', async (e) => {
   $('login-error').textContent = '';
   $('btn-entrar').disabled = true;
   const { data, error } = await db.auth.signInWithPassword({
-    email: $('login-email').value.trim(),
+    email: $('login-email').value.trim().toLowerCase(),
     password: $('login-clave').value,
   });
   $('btn-entrar').disabled = false;
-    if (error) { $('login-error').textContent = /invalid login/i.test(error.message) ? 'Email o contraseña incorrectos.' : 'No se pudo conectar: ' + error.message; return; }
+  if (error) { $('login-error').textContent = /invalid login/i.test(error.message) ? 'Email o contraseña incorrectos.' : 'No se pudo conectar: ' + error.message; return; }
   await entrar(data.user);
 });
 
@@ -485,7 +489,10 @@ $('dialogo-si').addEventListener('click', async () => {
   await abrirCliente(clienteActual.id);
 });
 
-iniciar();
+iniciar().catch((e) => {
+  mostrar('pantalla-login');
+  $('login-error').textContent = 'No se pudo conectar: ' + e.message;
+});
 </script>
 </body>
 </html>

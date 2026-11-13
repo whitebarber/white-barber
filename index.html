@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
+<title>WHITE BARBER – Panel</title>
+
+<script>
+// ================= CONFIGURACIÓN =================
+// Reemplazá lo que está entre comillas por tus dos datos de Supabase.
+const SUPABASE_URL = 'PEGAR_PROJECT_URL';
+const SUPABASE_KEY = 'PEGAR_CLAVE_ANON';
+// =================================================
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+
+<style>
+  :root {
+    --negro: #000000;
+    --superficie: #17171a;
+    --linea: #2c2c30;
+    --blanco: #f7f7f4;
+    --plata: #a2a2a8;
+    --oro: #c9a55c;
+    --oro-tenue: rgba(201, 165, 92, 0.14);
+    --error: #e8695f;
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --sans: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--negro); color: var(--blanco); }
+  body {
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    -webkit-font-smoothing: antialiased;
+  }
+  .contenedor { max-width: 480px; margin: 0 auto; padding: 24px 20px 48px; }
+  [hidden] { display: none !important; }
+
+  /* Marca */
+  .marca { font-family: var(--serif); font-weight: 600; letter-spacing: 0.32em; }
+  .marca-grande { font-size: 34px; text-align: center; margin: 48px 0 4px; }
+  .bajada { text-align: center; color: var(--plata); margin: 0 0 40px; }
+
+  /* Formularios */
+  label { display: block; font-size: 14px; color: var(--plata); margin: 18px 0 6px; }
+  input {
+    width: 100%; font: inherit; color: var(--blanco);
+    background: var(--superficie); border: 1px solid var(--linea);
+    border-radius: 10px; padding: 14px 14px;
+  }
+  input:focus { outline: none; border-color: var(--oro); }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+  .btn {
+    width: 100%; border-radius: 10px; padding: 15px 18px;
+    font-weight: 700; border: 1px solid var(--oro);
+  }
+  .btn-oro { background: var(--oro); color: var(--negro); }
+  .btn-borde { background: transparent; color: var(--oro); }
+  .btn:disabled { opacity: 0.5; cursor: wait; }
+  .mensaje-error { color: var(--error); font-size: 14px; min-height: 21px; margin: 12px 0 0; }
+  .espacio { height: 24px; }
+
+  /* Encabezado */
+  .encabezado {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 16px; border-bottom: 1px solid var(--linea); margin-bottom: 20px;
+  }
+  .encabezado .marca { font-size: 18px; }
+  .usuario { font-size: 14px; color: var(--plata); text-align: right; }
+  .link {
+    background: none; border: none; color: var(--oro);
+    padding: 0; font-size: 14px; text-decoration: underline;
+  }
+
+  /* Lista de clientes */
+  .fila-busqueda { display: flex; gap: 10px; }
+  .fila-busqueda input { flex: 1; }
+  .fila-busqueda .btn { width: auto; white-space: nowrap; }
+  .lista { list-style: none; padding: 0; margin: 20px 0 0; }
+  .item {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    background: none; border: none; border-bottom: 1px solid var(--linea);
+    color: var(--blanco); text-align: left; padding: 16px 2px;
+  }
+  .item-nombre { font-weight: 500; }
+  .item-tel { font-size: 14px; color: var(--plata); }
+  .item-progreso { font-family: var(--serif); font-size: 22px; color: var(--oro); }
+  .vacio { color: var(--plata); text-align: center; padding: 32px 0; }
+
+  /* Tarjeta de membresía */
+  .membresia {
+    position: relative; overflow: hidden;
+    border: 1px solid rgba(201, 165, 92, 0.55); border-radius: 18px;
+    padding: 22px 20px 20px;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(201, 165, 92, 0.16), transparent 55%),
+      linear-gradient(160deg, #1d1d21 0%, #050505 70%);
+  }
+  .mem-arriba { display: flex; justify-content: space-between; align-items: baseline; }
+  .mem-arriba .marca { font-size: 15px; color: var(--oro); }
+  .mem-numero { font-size: 13px; color: var(--plata); }
+  .mem-nombre { font-family: var(--serif); font-size: 30px; line-height: 1.15; margin: 18px 0 20px; }
+  .sellos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .sello {
+    aspect-ratio: 1; border-radius: 50%;
+    border: 1px solid var(--linea); color: var(--plata);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 20px; line-height: 1;
+  }
+  .sello small { font-family: var(--sans); font-size: 10px; margin-top: 3px; }
+  .sello.premio { border-color: var(--oro); color: var(--oro); }
+  .sello.hecho { background: var(--oro); border-color: var(--oro); color: var(--negro); }
+  .sello.nuevo { animation: estampar 0.6s ease-out; }
+  @keyframes estampar {
+    0% { transform: scale(1.6); opacity: 0; }
+    60% { transform: scale(0.92); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .sello.nuevo { animation: none; } }
+  .mem-pie { margin-top: 18px; font-size: 14px; color: var(--plata); }
+
+  /* Próximo corte */
+  .proximo {
+    margin: 20px 0; padding: 16px; border-radius: 12px;
+    background: var(--superficie); border-left: 3px solid var(--linea);
+  }
+  .proximo.con-premio { border-left-color: var(--oro); background: var(--oro-tenue); }
+  .proximo strong { display: block; font-size: 17px; margin-bottom: 2px; }
+  .proximo span { color: var(--plata); font-size: 14px; }
+
+  /* Historial */
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 32px 0 8px; }
+  .historial { list-style: none; padding: 0; margin: 0; }
+  .historial li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--linea); font-size: 15px;
+  }
+  .historial .detalle { color: var(--oro); }
+
+  /* Ventana de confirmación */
+  dialog {
+    width: min(92vw, 420px); border: 1px solid var(--linea); border-radius: 16px;
+    background: var(--superficie); color: var(--blanco); padding: 24px;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
+  dialog p { margin: 0 0 8px; }
+  .dialogo-premio { color: var(--oro); font-weight: 700; }
+  .botones { display: grid; gap: 10px; margin-top: 20px; }
+
+  /* Aviso */
+  .aviso {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%); width: min(92vw, 440px);
+    background: var(--blanco); color: var(--negro);
+    padding: 14px 16px; border-radius: 12px; font-weight: 500; z-index: 10;
+  }
+  .aviso.mal { background: var(--error); color: var(--negro); }
+</style>
+</head>
+<body>
+
+<!-- PANTALLA: INGRESO -->
+<section id="pantalla-login" class="pantalla contenedor" hidden>
+  <h1 class="marca marca-grande">WHITE BARBER</h1>
+  <p class="bajada">Panel del equipo</p>
+  <form id="form-login">
+    <label for="login-email">Email</label>
+    <input id="login-email" type="email" autocomplete="username" required>
+    <label for="login-clave">Contraseña</label>
+    <input id="login-clave" type="password" autocomplete="current-password" required>
+    <div class="espacio"></div>
+    <button class="btn btn-oro" id="btn-entrar" type="submit">Entrar</button>
+    <p class="mensaje-error" id="login-error" role="alert"></p>
+  </form>
+</section>
+
+<!-- PANTALLA: CLIENTES -->
+<section id="pantalla-panel" class="pantalla contenedor" hidden>
+  <header class="encabezado">
+    <span class="marca">WHITE BARBER</span>
+    <div class="usuario"><span id="nombre-usuario"></span><br><button class="link" id="btn-salir" type="button">Salir</button></div>
+  </header>
+  <div class="fila-busqueda">
+    <input id="buscador" type="search" placeholder="Buscar por nombre o teléfono" aria-label="Buscar cliente">
+    <button class="btn btn-oro" id="btn-nuevo" type="button">Nuevo cliente</button>
+  </div>
+  <ul class="lista" id="lista-clientes"></ul>
+</section>
+
+<!-- PANTALLA: NUEVO CLIENTE -->
+<section id="pantalla-nuevo" class="pantalla contenedor" hidden>
+  <header class="encabezado">
+    <button class="link" type="button" data-volver>Volver</button>
+    <span class="marca">WHITE BARBER</span>
+  </header>
+  <h2>Nuevo cliente</h2>
+  <form id="form-nuevo">
+    <label for="nuevo-nombre">Nombre</label>
+    <input id="nuevo-nombre" autocomplete="off" required>
+    <label for="nuevo-apellido">Apellido</label>
+    <input id="nuevo-apellido" autocomplete="off" required>
+    <label for="nuevo-telefono">Teléfono</label>
+    <input id="nuevo-telefono" type="tel" inputmode="numeric" placeholder="Ej: 3884123456" required>
+    <div class="espacio"></div>
+    <button class="btn btn-oro" id="btn-guardar" type="submit">Guardar cliente</button>
+    <p class="mensaje-error" id="nuevo-error" role="alert"></p>
+  </form>
+</section>
+
+<!-- PANTALLA: TARJETA DEL CLIENTE -->
+<section id="pantalla-cliente" class="pantalla contenedor" hidden>
+  <header class="encabezado">
+    <button class="link" type="button" data-volver>Volver</button>
+    <span class="marca">WHITE BARBER</span>
+  </header>
+  <div id="tarjeta"></div>
+  <div id="proximo"></div>
+  <button class="btn btn-oro" id="btn-registrar" type="button">Registrar corte</button>
+  <h2>Cortes de esta tarjeta</h2>
+  <ul class="historial" id="historial"></ul>
+</section>
+
+<!-- VENTANA DE CONFIRMACIÓN -->
+<dialog id="dialogo">
+  <p id="dialogo-texto"></p>
+  <p class="dialogo-premio" id="dialogo-premio"></p>
+  <div class="botones">
+    <button class="btn btn-oro" id="dialogo-si" type="button">Sí, registrar corte</button>
+    <button class="btn btn-borde" id="dialogo-no" type="button">Cancelar</button>
+  </div>
+</dialog>
+
+<div class="aviso" id="aviso" role="status" hidden></div>
+
+<script>
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (id) => document.getElementById(id);
+
+let yo = null;          // el barbero o admin que inició sesión
+let premios = [];       // premios activos
+let clienteActual = null;
+let selloNuevo = null;  // casillero recién marcado (para la animación)
+
+// ---------- Utilidades ----------
+function mostrar(id) {
+  document.querySelectorAll('.pantalla').forEach((p) => { p.hidden = p.id !== id; });
+  window.scrollTo(0, 0);
+}
+function esc(texto) {
+  return String(texto ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function avisar(texto, mal = false) {
+  const a = $('aviso');
+  a.textContent = texto;
+  a.classList.toggle('mal', mal);
+  a.hidden = false;
+  clearTimeout(avisar.t);
+  avisar.t = setTimeout(() => { a.hidden = true; }, 5000);
+}
+function fecha(f) {
+  return new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function etiquetaPremio(p) {
+  const pct = p.titulo.match(/\d+\s*%/);
+  if (pct) return pct[0].replace(/\s/g, '');
+  if (/gratis/i.test(p.titulo)) return 'Gratis';
+  return 'Premio';
+}
+function tarjetaAbierta(cliente) {
+  return (cliente.tarjetas || []).find((t) => t.estado === 'activa' || t.estado === 'completa');
+}
+
+// ---------- Inicio y sesión ----------
+async function iniciar() {
+  if (SUPABASE_URL.startsWith('PEGAR') || SUPABASE_KEY.startsWith('PEGAR')) {
+    mostrar('pantalla-login');
+    $('login-error').textContent = 'Falta configurar los datos de Supabase en el archivo.';
+    return;
+  }
+  const { data } = await db.auth.getSession();
+  if (data.session) await entrar(data.session.user);
+  else mostrar('pantalla-login');
+}
+
+async function entrar(usuario) {
+  const { data, error } = await db.from('personal')
+    .select('id, nombre, rol, activo').eq('id', usuario.id).maybeSingle();
+  if (error || !data || !data.activo) {
+    await db.auth.signOut();
+    mostrar('pantalla-login');
+    $('login-error').textContent = 'Este usuario no está habilitado. Pedile acceso al administrador.';
+    return;
+  }
+  yo = data;
+  $('nombre-usuario').textContent = data.nombre;
+  const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
+  premios = p.data || [];
+  mostrar('pantalla-panel');
+  buscar('');
+}
+
+$('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('login-error').textContent = '';
+  $('btn-entrar').disabled = true;
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $('login-email').value.trim(),
+    password: $('login-clave').value,
+  });
+  $('btn-entrar').disabled = false;
+  if (error) { $('login-error').textContent = 'Email o contraseña incorrectos.'; return; }
+  await entrar(data.user);
+});
+
+$('btn-salir').addEventListener('click', async () => {
+  await db.auth.signOut();
+  yo = null;
+  $('login-clave').value = '';
+  mostrar('pantalla-login');
+});
+
+// ---------- Búsqueda de clientes ----------
+async function buscar(texto) {
+  const limpio = texto.replace(/[,()%*\\]/g, '').trim();
+  const digitos = limpio.replace(/\D/g, '');
+  let consulta = db.from('clientes')
+    .select('id, nombre, apellido, telefono, tarjetas(id, numero, cortes, estado)')
+    .order('creado_en', { ascending: false })
+    .limit(30);
+  if (limpio) {
+    const filtros = [`nombre.ilike.%${limpio}%`, `apellido.ilike.%${limpio}%`];
+    if (digitos) filtros.push(`telefono.ilike.%${digitos}%`);
+    consulta = consulta.or(filtros.join(','));
+  }
+  const { data, error } = await consulta;
+  const lista = $('lista-clientes');
+  if (error) { lista.innerHTML = '<li class="vacio">No se pudo cargar la lista. Revisá la conexión.</li>'; return; }
+  if (!data.length) {
+    lista.innerHTML = limpio
+      ? '<li class="vacio">No hay clientes con ese nombre o teléfono. Registralo con “Nuevo cliente”.</li>'
+      : '<li class="vacio">Todavía no hay clientes. Registrá el primero con “Nuevo cliente”.</li>';
+    return;
+  }
+  lista.innerHTML = data.map((c) => {
+    const t = tarjetaAbierta(c);
+    return `<li><button class="item" type="button" data-id="${c.id}">
+      <span><span class="item-nombre">${esc(c.nombre)} ${esc(c.apellido)}</span><br>
+      <span class="item-tel">${esc(c.telefono)}</span></span>
+      <span class="item-progreso">${t ? t.cortes : 0}/10</span>
+    </button></li>`;
+  }).join('');
+}
+
+let esperaBusqueda;
+$('buscador').addEventListener('input', (e) => {
+  clearTimeout(esperaBusqueda);
+  esperaBusqueda = setTimeout(() => buscar(e.target.value), 300);
+});
+$('lista-clientes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-id]');
+  if (b) abrirCliente(b.dataset.id);
+});
+document.querySelectorAll('[data-volver]').forEach((b) =>
+  b.addEventListener('click', () => { mostrar('pantalla-panel'); buscar($('buscador').value); }));
+
+// ---------- Nuevo cliente ----------
+$('btn-nuevo').addEventListener('click', () => {
+  $('form-nuevo').reset();
+  $('nuevo-error').textContent = '';
+  mostrar('pantalla-nuevo');
+  $('nuevo-nombre').focus();
+});
+
+$('form-nuevo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const telefono = $('nuevo-telefono').value.replace(/\D/g, '');
+  if (telefono.length < 8) { $('nuevo-error').textContent = 'El teléfono debe tener al menos 8 números.'; return; }
+  $('btn-guardar').disabled = true;
+  const { data, error } = await db.rpc('registrar_cliente', {
+    p_nombre: $('nuevo-nombre').value,
+    p_apellido: $('nuevo-apellido').value,
+    p_telefono: telefono,
+  });
+  $('btn-guardar').disabled = false;
+  if (error) { $('nuevo-error').textContent = error.message; return; }
+  avisar(`${data.nombre} ${data.apellido} ya tiene su tarjeta.`);
+  abrirCliente(data.id);
+});
+
+// ---------- Tarjeta del cliente ----------
+async function abrirCliente(id) {
+  const { data, error } = await db.from('clientes')
+    .select('id, nombre, apellido, telefono, tarjetas(id, numero, cortes, estado, lista:cortes(posicion, fecha))')
+    .eq('id', id).single();
+  if (error) { avisar('No se pudo abrir el cliente. Probá de nuevo.', true); return; }
+  clienteActual = data;
+  dibujarCliente();
+  mostrar('pantalla-cliente');
+}
+
+function dibujarCliente() {
+  const c = clienteActual;
+  const t = tarjetaAbierta(c) || { numero: 1, cortes: 0, lista: [] };
+  const hechos = t.cortes;
+
+  let sellos = '';
+  for (let n = 1; n <= 10; n++) {
+    const premio = premios.find((p) => p.posicion === n);
+    const clases = ['sello'];
+    if (premio) clases.push('premio');
+    if (n <= hechos) clases.push('hecho');
+    if (n === selloNuevo) clases.push('nuevo');
+    sellos += `<div class="${clases.join(' ')}" aria-label="Corte ${n}${n <= hechos ? ', hecho' : ''}${premio ? ', ' + esc(premio.titulo) : ''}">
+      ${n}${premio ? `<small>${esc(etiquetaPremio(premio))}</small>` : ''}</div>`;
+  }
+  selloNuevo = null;
+
+  $('tarjeta').innerHTML = `<div class="membresia">
+    <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${t.numero}</span></div>
+    <div class="mem-nombre">${esc(c.nombre)} ${esc(c.apellido)}</div>
+    <div class="sellos">${sellos}</div>
+    <div class="mem-pie">${hechos} de 10 cortes</div>
+  </div>`;
+
+  const siguiente = hechos + 1;
+  const premioHoy = premios.find((p) => p.posicion === siguiente);
+  const proximoPremio = premios.find((p) => p.posicion > siguiente);
+  if (premioHoy) {
+    $('proximo').innerHTML = `<div class="proximo con-premio">
+      <strong>Hoy es su corte N° ${siguiente}: ${esc(premioHoy.titulo)}</strong>
+      <span>Aplicalo al cobrar. Se registra solo al marcar el corte.</span></div>`;
+  } else {
+    $('proximo').innerHTML = `<div class="proximo">
+      <strong>Hoy es su corte N° ${siguiente}: precio normal</strong>
+      <span>${proximoPremio ? `Próximo premio en el corte N° ${proximoPremio.posicion}: ${esc(proximoPremio.titulo)}.` : ''}</span></div>`;
+  }
+
+  const lista = (t.lista || []).slice().sort((a, b) => b.posicion - a.posicion);
+  $('historial').innerHTML = lista.length
+    ? lista.map((x) => {
+        const p = premios.find((pr) => pr.posicion === x.posicion);
+        return `<li><span>Corte N° ${x.posicion} – ${fecha(x.fecha)}</span>
+          <span class="detalle">${p ? esc(p.titulo) : ''}</span></li>`;
+      }).join('')
+    : '<li><span class="item-tel">Todavía no tiene cortes en esta tarjeta.</span></li>';
+}
+
+// ---------- Registrar corte ----------
+$('btn-registrar').addEventListener('click', () => {
+  const t = tarjetaAbierta(clienteActual) || { cortes: 0 };
+  const siguiente = t.cortes + 1;
+  const premio = premios.find((p) => p.posicion === siguiente);
+  $('dialogo-texto').textContent =
+    `¿Registrar el corte N° ${siguiente} de ${clienteActual.nombre} ${clienteActual.apellido}?`;
+  $('dialogo-premio').textContent = premio ? `Este corte tiene: ${premio.titulo}` : '';
+  $('dialogo').showModal();
+});
+$('dialogo-no').addEventListener('click', () => $('dialogo').close());
+
+$('dialogo-si').addEventListener('click', async () => {
+  $('dialogo-si').disabled = true;
+  const { data, error } = await db.rpc('registrar_corte', { p_cliente_id: clienteActual.id });
+  $('dialogo-si').disabled = false;
+  $('dialogo').close();
+  if (error) { avisar(error.message, true); return; }
+
+  let texto = `Corte N° ${data.posicion} registrado.`;
+  if (data.tarjeta_vencida) texto = 'La tarjeta anterior venció por inactividad y se abrió una nueva. ' + texto;
+  if (data.premio) texto += ` Aplicá: ${data.premio}.`;
+  if (data.tarjeta_completa) texto += ' ¡Tarjeta completa! Ya tiene una tarjeta nueva.';
+  avisar(texto);
+
+  selloNuevo = data.tarjeta_completa ? null : data.posicion;
+  await abrirCliente(clienteActual.id);
+});
+
+iniciar();
+</script>
+</body>
+</html>

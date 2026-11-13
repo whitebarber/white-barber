@@ -319,7 +319,7 @@ $('form-login').addEventListener('submit', async (e) => {
     password: $('login-clave').value,
   });
   $('btn-entrar').disabled = false;
-  if (error) { $('login-error').textContent = 'Email o contraseña incorrectos.'; return; }
+    if (error) { $('login-error').textContent = /invalid login/i.test(error.message) ? 'Email o contraseña incorrectos.' : 'No se pudo conectar: ' + error.message; return; }
   await entrar(data.user);
 });
 

@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
   :root {
@@ -84,6 +85,13 @@
   }
   .lista .ok { color: var(--oro); }
   .lista .pendiente { color: var(--plata); }
+  .codigo { text-align: center; }
+  .codigo p { color: var(--plata); font-size: 14px; margin: 0 0 12px; }
+  .qr-caja {
+    background: #ffffff; border-radius: 14px; padding: 16px;
+    width: 232px; max-width: 100%; margin: 0 auto;
+  }
+  .qr-caja img, .qr-caja canvas { display: block; width: 100% !important; height: auto !important; }
   .nota { color: var(--plata); font-size: 14px; margin-top: 32px; text-align: center; }
 
   .barra-equipo {
@@ -113,6 +121,12 @@
     <p class="saludo" id="saludo"></p>
     <div id="tarjeta"></div>
     <div id="proximo"></div>
+
+    <section class="codigo" id="seccion-codigo">
+      <h2>Tu código</h2>
+      <p>Mostralo en la barbería para registrar tu corte.</p>
+      <div class="qr-caja" id="qr-caja"></div>
+    </section>
 
     <h2>Tus premios</h2>
     <ul class="lista" id="premios"></ul>
@@ -217,6 +231,17 @@ async function iniciar() {
   $('visitas').innerHTML = visitas.length
     ? visitas.map((v) => `<li><span>Corte N° ${v.posicion}</span><span class="pendiente">${fecha(v.fecha)}</span></li>`).join('')
     : '<li><span class="pendiente">Todavía no tenés cortes en esta tarjeta.</span></li>';
+
+  if (typeof QRCode !== 'undefined') {
+    $('qr-caja').innerHTML = '';
+    new QRCode($('qr-caja'), {
+      text: location.origin + location.pathname + '?c=' + encodeURIComponent(codigo),
+      width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } else {
+    $('seccion-codigo').hidden = true;
+  }
 
   const completas = Number(t.tarjetas_completas) || 0;
   $('nota').textContent = completas > 0

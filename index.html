@@ -5,20 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 <title>WHITE BARBER – Panel</title>
-
-<script>
-// ================= CONFIGURACIÓN =================
-// Reemplazá lo que está entre comillas por tus dos datos de Supabase.
-const SUPABASE_URL = 'https://qktxrfvkurxwkzcrflds.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
-// =================================================
-</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
   :root {
@@ -39,9 +34,12 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
     font-family: var(--sans);
     font-size: 16px;
     line-height: 1.5;
+    font-variant-numeric: lining-nums;
     padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
     -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
   }
+  a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
   .contenedor { max-width: 480px; margin: 0 auto; padding: 24px 20px 48px; }
   [hidden] { display: none !important; }
 
@@ -59,14 +57,16 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   }
   input:focus { outline: none; border-color: var(--oro); }
   button { font: inherit; cursor: pointer; }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
   .btn {
-    width: 100%; border-radius: 10px; padding: 15px 18px;
+    display: block; width: 100%; border-radius: 10px; padding: 15px 18px;
     font-weight: 700; border: 1px solid var(--oro);
+    text-align: center; text-decoration: none; font-size: 16px;
   }
   .btn-oro { background: var(--oro); color: var(--negro); }
   .btn-borde { background: transparent; color: var(--oro); }
   .btn:disabled { opacity: 0.5; cursor: wait; }
+  .btn + .btn { margin-top: 10px; }
   .mensaje-error { color: var(--error); font-size: 14px; min-height: 21px; margin: 12px 0 0; }
   .espacio { height: 24px; }
 
@@ -115,7 +115,8 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
     aspect-ratio: 1; border-radius: 50%;
     border: 1px solid var(--linea); color: var(--plata);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-family: var(--serif); font-size: 20px; line-height: 1;
+    font-family: var(--serif); font-size: 21px; line-height: 1;
+    font-variant-numeric: lining-nums;
   }
   .sello small { font-family: var(--sans); font-size: 10px; margin-top: 3px; }
   .sello.premio { border-color: var(--oro); color: var(--oro); }
@@ -147,7 +148,7 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   }
   .historial .detalle { color: var(--oro); }
 
-  /* Ventana de confirmación */
+  /* Ventanas */
   dialog {
     width: min(92vw, 420px); border: 1px solid var(--linea); border-radius: 16px;
     background: var(--superficie); color: var(--blanco); padding: 24px;
@@ -155,7 +156,14 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
   dialog p { margin: 0 0 8px; }
   .dialogo-premio { color: var(--oro); font-weight: 700; }
-  .botones { display: grid; gap: 10px; margin-top: 20px; }
+  .botones { margin-top: 20px; }
+  .qr-titulo { font-family: var(--serif); font-size: 24px; text-align: center; }
+  .qr-caja {
+    background: #ffffff; border-radius: 12px; padding: 16px;
+    width: 252px; max-width: 100%; margin: 12px auto;
+  }
+  .qr-caja img, .qr-caja canvas { display: block; width: 100% !important; height: auto !important; }
+  .qr-ayuda { color: var(--plata); font-size: 14px; text-align: center; }
 
   /* Aviso */
   .aviso {
@@ -206,10 +214,10 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   <h2>Nuevo cliente</h2>
   <form id="form-nuevo">
     <label for="nuevo-nombre">Nombre</label>
-    <input id="nuevo-nombre" autocomplete="off" required>
+    <input id="nuevo-nombre" autocomplete="off" autocapitalize="words" required>
     <label for="nuevo-apellido">Apellido</label>
-    <input id="nuevo-apellido" autocomplete="off" required>
-    <label for="nuevo-telefono">Teléfono</label>
+    <input id="nuevo-apellido" autocomplete="off" autocapitalize="words" required>
+    <label for="nuevo-telefono">Teléfono (con característica, sin 0 ni 15)</label>
     <input id="nuevo-telefono" type="tel" inputmode="numeric" placeholder="Ej: 3884123456" required>
     <div class="espacio"></div>
     <button class="btn btn-oro" id="btn-guardar" type="submit">Guardar cliente</button>
@@ -226,11 +234,12 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   <div id="tarjeta"></div>
   <div id="proximo"></div>
   <button class="btn btn-oro" id="btn-registrar" type="button">Registrar corte</button>
+  <button class="btn btn-borde" id="btn-qr" type="button">Ver QR y enviar tarjeta</button>
   <h2>Cortes de esta tarjeta</h2>
   <ul class="historial" id="historial"></ul>
 </section>
 
-<!-- VENTANA DE CONFIRMACIÓN -->
+<!-- VENTANA: CONFIRMAR CORTE -->
 <dialog id="dialogo">
   <p id="dialogo-texto"></p>
   <p class="dialogo-premio" id="dialogo-premio"></p>
@@ -240,12 +249,25 @@ const SUPABASE_KEY = 'sb_publishable_eRSumS5MUBY97v-b6UC6Vg_z-U38jGH';
   </div>
 </dialog>
 
+<!-- VENTANA: QR DEL CLIENTE -->
+<dialog id="dialogo-qr">
+  <p class="qr-titulo" id="qr-nombre"></p>
+  <div class="qr-caja" id="qr-caja"></div>
+  <p class="qr-ayuda">El cliente lo escanea con la cámara de su celular para ver su tarjeta.</p>
+  <div class="botones">
+    <a class="btn btn-oro" id="qr-whatsapp" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+    <button class="btn btn-borde" id="qr-copiar" type="button">Copiar enlace</button>
+    <button class="btn btn-borde" id="qr-cerrar" type="button">Cerrar</button>
+  </div>
+</dialog>
+
 <div class="aviso" id="aviso" role="status" hidden></div>
 
 <script>
-if (typeof supabase === 'undefined') {
-  document.getElementById('login-error').textContent = 'No se pudo cargar la conexión. Revisá internet y recargá la página.';
-  throw new Error('Falta la librería de Supabase');
+if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') {
+  document.getElementById('login-error').textContent =
+    'No se pudo cargar la conexión. Revisá internet y que exista el archivo config.js.';
+  throw new Error('Falta la librería de Supabase o config.js');
 }
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
@@ -284,12 +306,21 @@ function etiquetaPremio(p) {
 function tarjetaAbierta(cliente) {
   return (cliente.tarjetas || []).find((t) => t.estado === 'activa' || t.estado === 'completa');
 }
+function enlaceTarjeta(codigo) {
+  return new URL('tarjeta.html?c=' + codigo, location.href).href;
+}
+function numeroWhatsApp(telefono) {
+  const d = String(telefono).replace(/\D/g, '');
+  if (d.startsWith('54')) return d;
+  if (d.length === 10) return '549' + d;
+  return d;
+}
 
 // ---------- Inicio y sesión ----------
 async function iniciar() {
   if (!SUPABASE_URL.startsWith('https://') || SUPABASE_KEY.startsWith('PEGAR')) {
     mostrar('pantalla-login');
-    $('login-error').textContent = 'Falta configurar los datos de Supabase en el archivo.';
+    $('login-error').textContent = 'Falta completar la clave en el archivo config.js.';
     return;
   }
   const { data } = await db.auth.getSession();
@@ -310,6 +341,15 @@ async function entrar(usuario) {
   $('nombre-usuario').textContent = data.nombre;
   const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
   premios = p.data || [];
+
+  // Si llegó escaneando el QR de un cliente, abrir directo su tarjeta
+  const codigo = new URLSearchParams(location.search).get('c');
+  if (codigo) {
+    history.replaceState(null, '', location.pathname);
+    const r = await db.from('clientes').select('id').eq('codigo', codigo).maybeSingle();
+    if (r.data) { await abrirCliente(r.data.id); return; }
+    avisar('No se encontró el cliente de ese QR.', true);
+  }
   mostrar('pantalla-panel');
   buscar('');
 }
@@ -323,7 +363,12 @@ $('form-login').addEventListener('submit', async (e) => {
     password: $('login-clave').value,
   });
   $('btn-entrar').disabled = false;
-  if (error) { $('login-error').textContent = /invalid login/i.test(error.message) ? 'Email o contraseña incorrectos.' : 'No se pudo conectar: ' + error.message; return; }
+  if (error) {
+    $('login-error').textContent = /invalid login/i.test(error.message)
+      ? 'Email o contraseña incorrectos.'
+      : 'No se pudo conectar: ' + error.message;
+    return;
+  }
   await entrar(data.user);
 });
 
@@ -405,7 +450,7 @@ $('form-nuevo').addEventListener('submit', async (e) => {
 // ---------- Tarjeta del cliente ----------
 async function abrirCliente(id) {
   const { data, error } = await db.from('clientes')
-    .select('id, nombre, apellido, telefono, tarjetas(id, numero, cortes, estado, lista:cortes(posicion, fecha))')
+    .select('id, nombre, apellido, telefono, codigo, tarjetas(id, numero, cortes, estado, lista:cortes(posicion, fecha))')
     .eq('id', id).single();
   if (error) { avisar('No se pudo abrir el cliente. Probá de nuevo.', true); return; }
   clienteActual = data;
@@ -488,6 +533,40 @@ $('dialogo-si').addEventListener('click', async () => {
   selloNuevo = data.tarjeta_completa ? null : data.posicion;
   await abrirCliente(clienteActual.id);
 });
+
+// ---------- QR y envío de la tarjeta ----------
+$('btn-qr').addEventListener('click', () => {
+  const c = clienteActual;
+  const enlace = enlaceTarjeta(c.codigo);
+  $('qr-nombre').textContent = `${c.nombre} ${c.apellido}`;
+  const caja = $('qr-caja');
+  caja.innerHTML = '';
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(caja, {
+      text: enlace, width: 220, height: 220,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } else {
+    caja.textContent = 'No se pudo generar el QR. Usá “Enviar por WhatsApp”.';
+    caja.style.color = '#000';
+  }
+  const mensaje = `¡Hola ${c.nombre}! Esta es tu tarjeta de fidelización de WHITE BARBER. ` +
+    `Guardá este enlace para ver tus cortes y premios: ${enlace}`;
+  $('qr-whatsapp').href = `https://wa.me/${numeroWhatsApp(c.telefono)}?text=${encodeURIComponent(mensaje)}`;
+  $('dialogo-qr').showModal();
+});
+
+$('qr-copiar').addEventListener('click', async () => {
+  const enlace = enlaceTarjeta(clienteActual.codigo);
+  try {
+    await navigator.clipboard.writeText(enlace);
+    avisar('Enlace copiado.');
+  } catch {
+    prompt('Copiá este enlace:', enlace);
+  }
+});
+$('qr-cerrar').addEventListener('click', () => $('dialogo-qr').close());
 
 iniciar().catch((e) => {
   mostrar('pantalla-login');

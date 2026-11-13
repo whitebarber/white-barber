@@ -1,0 +1,4 @@
+// Datos de conexión de WHITE BARBER con Supabase.
+// Solo hay que completar la clave UNA vez: los demás archivos la toman de acá.
+const SUPABASE_URL = 'https://qktxrfvkurxwkzcrflds.supabase.co';
+const SUPABASE_KEY = 'PEGAR_PUBLISHABLE_KEY';

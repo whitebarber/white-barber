@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+<title>Mi tarjeta – WHITE BARBER</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+
+<style>
+  :root {
+    --negro: #000000;
+    --superficie: #17171a;
+    --linea: #2c2c30;
+    --blanco: #f7f7f4;
+    --plata: #a2a2a8;
+    --oro: #c9a55c;
+    --oro-tenue: rgba(201, 165, 92, 0.14);
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --sans: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--negro); color: var(--blanco); }
+  body {
+    font-family: var(--sans); font-size: 16px; line-height: 1.5;
+    font-variant-numeric: lining-nums;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+  }
+  a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+  .contenedor { max-width: 480px; margin: 0 auto; padding: 32px 20px 48px; }
+  [hidden] { display: none !important; }
+
+  .marca { font-family: var(--serif); font-weight: 600; letter-spacing: 0.32em; }
+  .saludo { font-family: var(--serif); font-size: 22px; color: var(--plata); margin: 0 0 16px; }
+  .estado { color: var(--plata); text-align: center; padding: 64px 0; }
+  .estado .marca { display: block; font-size: 26px; color: var(--blanco); margin-bottom: 16px; }
+
+  /* Tarjeta de membresía */
+  .membresia {
+    border: 1px solid rgba(201, 165, 92, 0.55); border-radius: 18px;
+    padding: 22px 20px 20px;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(201, 165, 92, 0.16), transparent 55%),
+      linear-gradient(160deg, #1d1d21 0%, #050505 70%);
+  }
+  .mem-arriba { display: flex; justify-content: space-between; align-items: baseline; }
+  .mem-arriba .marca { font-size: 15px; color: var(--oro); }
+  .mem-numero { font-size: 13px; color: var(--plata); }
+  .mem-nombre { font-family: var(--serif); font-size: 30px; line-height: 1.15; margin: 18px 0 20px; }
+  .sellos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .sello {
+    aspect-ratio: 1; border-radius: 50%;
+    border: 1px solid var(--linea); color: var(--plata);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 21px; line-height: 1;
+    font-variant-numeric: lining-nums;
+  }
+  .sello small { font-family: var(--sans); font-size: 10px; margin-top: 3px; }
+  .sello.premio { border-color: var(--oro); color: var(--oro); }
+  .sello.hecho { background: var(--oro); border-color: var(--oro); color: var(--negro); }
+  .mem-pie { margin-top: 18px; font-size: 14px; color: var(--plata); }
+
+  .proximo {
+    margin: 20px 0 0; padding: 16px; border-radius: 12px;
+    background: var(--superficie); border-left: 3px solid var(--linea);
+  }
+  .proximo.con-premio { border-left-color: var(--oro); background: var(--oro-tenue); }
+  .proximo strong { display: block; font-size: 17px; margin-bottom: 2px; }
+  .proximo span { color: var(--plata); font-size: 14px; }
+
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 32px 0 8px; }
+  .lista { list-style: none; padding: 0; margin: 0; }
+  .lista li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--linea); font-size: 15px;
+  }
+  .lista .ok { color: var(--oro); }
+  .lista .pendiente { color: var(--plata); }
+  .nota { color: var(--plata); font-size: 14px; margin-top: 32px; text-align: center; }
+
+  .barra-equipo {
+    margin-bottom: 20px; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid var(--oro); display: flex; gap: 12px;
+    align-items: center; justify-content: space-between;
+  }
+  .barra-equipo span { font-size: 14px; color: var(--plata); }
+  .btn {
+    display: inline-block; border-radius: 10px; padding: 11px 14px;
+    font-weight: 700; background: var(--oro); color: var(--negro);
+    text-decoration: none; white-space: nowrap; font-size: 15px;
+  }
+  .btn:focus-visible { outline: 2px solid var(--blanco); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="contenedor">
+  <div id="barra-equipo" class="barra-equipo" hidden>
+    <span>Estás conectado como equipo</span>
+    <a class="btn" id="abrir-panel" href="index.html">Abrir en el panel</a>
+  </div>
+
+  <div id="estado" class="estado"><span class="marca">WHITE BARBER</span>Cargando tu tarjeta…</div>
+
+  <div id="contenido" hidden>
+    <p class="saludo" id="saludo"></p>
+    <div id="tarjeta"></div>
+    <div id="proximo"></div>
+
+    <h2>Tus premios</h2>
+    <ul class="lista" id="premios"></ul>
+
+    <h2>Tus visitas</h2>
+    <ul class="lista" id="visitas"></ul>
+
+    <p class="nota" id="nota"></p>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function esc(texto) {
+  return String(texto ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fecha(f) {
+  return new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+function etiquetaPremio(p) {
+  const pct = p.titulo.match(/\d+\s*%/);
+  if (pct) return pct[0].replace(/\s/g, '');
+  if (/gratis/i.test(p.titulo)) return 'Gratis';
+  return 'Premio';
+}
+function mostrarEstado(texto) {
+  $('estado').innerHTML = `<span class="marca">WHITE BARBER</span>${esc(texto)}`;
+  $('estado').hidden = false;
+  $('contenido').hidden = true;
+}
+
+async function iniciar() {
+  if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') {
+    mostrarEstado('No pudimos cargar tu tarjeta. Revisá tu conexión y recargá la página.');
+    return;
+  }
+  const codigo = new URLSearchParams(location.search).get('c');
+  if (!codigo) {
+    mostrarEstado('Escaneá el código QR de tu tarjeta para verla.');
+    return;
+  }
+
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Si quien escanea es un barbero con sesión iniciada, ofrecer abrir en el panel
+  const sesion = await db.auth.getSession();
+  if (sesion.data.session) {
+    $('abrir-panel').href = 'index.html?c=' + encodeURIComponent(codigo);
+    $('barra-equipo').hidden = false;
+  }
+
+  const { data: t, error } = await db.rpc('ver_tarjeta', { p_codigo: codigo });
+  if (error) { mostrarEstado('No pudimos cargar tu tarjeta. Probá de nuevo en un rato.'); return; }
+  if (!t) { mostrarEstado('No encontramos esta tarjeta. Pedile tu QR a tu barbero.'); return; }
+
+  const premios = t.premios || [];
+  const hechos = t.cortes;
+
+  $('saludo').textContent = `Hola, ${t.nombre}`;
+
+  let sellos = '';
+  for (let n = 1; n <= 10; n++) {
+    const premio = premios.find((p) => p.posicion === n);
+    const clases = ['sello'];
+    if (premio) clases.push('premio');
+    if (n <= hechos) clases.push('hecho');
+    sellos += `<div class="${clases.join(' ')}" aria-label="Corte ${n}${n <= hechos ? ', hecho' : ''}${premio ? ', ' + esc(premio.titulo) : ''}">
+      ${n}${premio ? `<small>${esc(etiquetaPremio(premio))}</small>` : ''}</div>`;
+  }
+  $('tarjeta').innerHTML = `<div class="membresia">
+    <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${t.tarjeta}</span></div>
+    <div class="mem-nombre">${esc(t.nombre)} ${esc(t.apellido)}</div>
+    <div class="sellos">${sellos}</div>
+    <div class="mem-pie">${hechos} de 10 cortes</div>
+  </div>`;
+
+  const siguiente = hechos + 1;
+  const premioHoy = premios.find((p) => p.posicion === siguiente);
+  const proximoPremio = premios.find((p) => p.posicion > hechos);
+  if (premioHoy) {
+    $('proximo').innerHTML = `<div class="proximo con-premio">
+      <strong>${/gratis/i.test(premioHoy.titulo) ? '¡Tu próximo corte es GRATIS!' : 'Tu próximo corte tiene ' + esc(premioHoy.titulo)}</strong>
+      <span>Se aplica automáticamente cuando tu barbero registra el corte.</span></div>`;
+  } else if (proximoPremio) {
+    const faltan = proximoPremio.posicion - hechos;
+    $('proximo').innerHTML = `<div class="proximo">
+      <strong>Te faltan ${faltan} cortes para tu próximo premio</strong>
+      <span>En el corte N° ${proximoPremio.posicion}: ${esc(proximoPremio.titulo)}.</span></div>`;
+  } else {
+    $('proximo').innerHTML = '';
+  }
+
+  $('premios').innerHTML = premios.map((p) => {
+    const usado = p.posicion <= hechos;
+    return `<li><span>Corte N° ${p.posicion}: ${esc(p.titulo)}</span>
+      <span class="${usado ? 'ok' : 'pendiente'}">${usado ? 'Usado' : 'Pendiente'}</span></li>`;
+  }).join('');
+
+  const visitas = (t.historial || []).slice().reverse();
+  $('visitas').innerHTML = visitas.length
+    ? visitas.map((v) => `<li><span>Corte N° ${v.posicion}</span><span class="pendiente">${fecha(v.fecha)}</span></li>`).join('')
+    : '<li><span class="pendiente">Todavía no tenés cortes en esta tarjeta.</span></li>';
+
+  const completas = Number(t.tarjetas_completas) || 0;
+  $('nota').textContent = completas > 0
+    ? `Ya completaste ${completas} ${completas === 1 ? 'tarjeta' : 'tarjetas'}. ¡Gracias por elegirnos!`
+    : 'Guardá este enlace o agregalo a tu pantalla de inicio para ver tu tarjeta cuando quieras.';
+
+  $('estado').hidden = true;
+  $('contenido').hidden = false;
+}
+
+iniciar().catch(() => mostrarEstado('No pudimos cargar tu tarjeta. Probá de nuevo en un rato.'));
+</script>
+</body>
+</html>

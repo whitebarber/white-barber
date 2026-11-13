@@ -45,6 +45,7 @@
   [hidden] { display: none !important; }
 
   .marca { font-family: var(--serif); font-weight: 600; letter-spacing: 0.32em; }
+  .logo { display: block; width: 132px; height: auto; margin: 0 auto 24px; }
   .saludo { font-family: var(--serif); font-size: 22px; color: var(--plata); margin: 0 0 16px; }
   .estado { color: var(--plata); text-align: center; padding: 64px 0; }
   .estado .marca { display: block; font-size: 26px; color: var(--blanco); margin-bottom: 16px; }
@@ -115,12 +116,13 @@
 </head>
 <body>
 <main class="contenedor">
+  <img class="logo" src="logo.png" alt="White Barbería">
   <div id="barra-equipo" class="barra-equipo" hidden>
     <span>Estás conectado como equipo</span>
     <a class="btn" id="abrir-panel" href="index.html">Abrir en el panel</a>
   </div>
 
-  <div id="estado" class="estado"><span class="marca">WHITE BARBER</span>Cargando tu tarjeta…</div>
+  <div id="estado" class="estado">Cargando tu tarjeta…</div>
 
   <div id="contenido" hidden>
     <p class="saludo" id="saludo"></p>
@@ -160,7 +162,7 @@ function etiquetaPremio(p) {
   return 'Premio';
 }
 function mostrarEstado(texto) {
-  $('estado').innerHTML = `<span class="marca">WHITE BARBER</span>${esc(texto)}`;
+  $('estado').innerHTML = esc(texto);
   $('estado').hidden = false;
   $('contenido').hidden = true;
 }

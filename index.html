@@ -7,6 +7,13 @@
 <meta name="theme-color" content="#000000">
 <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 <title>WHITE BARBER – Panel</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="White Barber">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +21,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <style>
   :root {
@@ -195,6 +203,19 @@
   .admin-opciones { margin-top: 32px; }
   .btn-peligro { background: transparent; color: var(--error); border-color: var(--error); }
 
+  /* Lector de QR */
+  .btn-escanear { margin-top: 12px; }
+  .visor {
+    position: relative; overflow: hidden; border-radius: 16px;
+    background: #0b0b0d; aspect-ratio: 3 / 4; border: 1px solid var(--linea);
+  }
+  .visor video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .visor .marco {
+    position: absolute; inset: 18%; border: 2px solid var(--oro); border-radius: 18px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  }
+  .visor-ayuda { color: var(--plata); text-align: center; margin: 16px 0 20px; }
+
   /* Aviso */
   .aviso {
     position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
@@ -232,7 +253,22 @@
     <input id="buscador" type="search" placeholder="Buscar por nombre o teléfono" aria-label="Buscar cliente">
     <button class="btn btn-oro" id="btn-nuevo" type="button">Nuevo cliente</button>
   </div>
+  <button class="btn btn-borde btn-escanear" id="btn-escanear" type="button">Escanear QR del cliente</button>
   <ul class="lista" id="lista-clientes"></ul>
+</section>
+
+<!-- PANTALLA: LECTOR DE QR -->
+<section id="pantalla-escaner" class="pantalla contenedor" hidden>
+  <header class="encabezado">
+    <button class="link" type="button" id="escaner-volver">Volver</button>
+    <span class="marca">WHITE BARBER</span>
+  </header>
+  <div class="visor">
+    <video id="video" playsinline muted autoplay></video>
+    <div class="marco" aria-hidden="true"></div>
+  </div>
+  <p class="visor-ayuda" id="escaner-ayuda">Apuntá la cámara al QR de la tarjeta del cliente.</p>
+  <canvas id="lienzo" hidden></canvas>
 </section>
 
 <!-- PANTALLA: NUEVO CLIENTE -->
@@ -985,6 +1021,75 @@ $('form-reglas').addEventListener('submit', async (e) => {
     .update({ horas_entre_cortes: horas, dias_vencimiento: dias }).eq('id', 1);
   if (error) { $('reglas-error').textContent = error.message; return; }
   avisar('Reglas guardadas.');
+});
+
+// ---------- Lector de QR dentro del panel ----------
+let flujo = null;
+let buscandoQR = false;
+
+async function abrirEscaner() {
+  if (typeof jsQR === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    avisar('Este celular no permite escanear desde la app. Usá la cámara del celular.', true);
+    return;
+  }
+  mostrar('pantalla-escaner');
+  $('escaner-ayuda').textContent = 'Apuntá la cámara al QR de la tarjeta del cliente.';
+  try {
+    flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch {
+    $('escaner-ayuda').textContent = 'No se pudo usar la cámara. Revisá que la app tenga permiso para usarla.';
+    return;
+  }
+  const video = $('video');
+  video.srcObject = flujo;
+  await video.play().catch(() => {});
+  buscandoQR = true;
+  requestAnimationFrame(leerCuadro);
+}
+
+function cerrarEscaner() {
+  buscandoQR = false;
+  if (flujo) { flujo.getTracks().forEach((t) => t.stop()); flujo = null; }
+  $('video').srcObject = null;
+}
+
+function leerCuadro() {
+  if (!buscandoQR) return;
+  const video = $('video');
+  if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth) {
+    const escala = Math.min(1, 640 / video.videoWidth);
+    const w = Math.round(video.videoWidth * escala);
+    const h = Math.round(video.videoHeight * escala);
+    const lienzo = $('lienzo');
+    lienzo.width = w; lienzo.height = h;
+    const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, w, h);
+    const resultado = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+    if (resultado && resultado.data) { procesarQR(resultado.data); return; }
+  }
+  requestAnimationFrame(leerCuadro);
+}
+
+async function procesarQR(texto) {
+  let codigo = null;
+  try { codigo = new URL(texto).searchParams.get('c'); } catch { /* no es un enlace */ }
+  if (!codigo && /^[0-9a-f]{32}$/i.test(texto.trim())) codigo = texto.trim();
+  if (!codigo) {
+    $('escaner-ayuda').textContent = 'Ese QR no es de una tarjeta de WHITE BARBER. Probá de nuevo.';
+    setTimeout(() => { if (flujo) { buscandoQR = true; requestAnimationFrame(leerCuadro); } }, 1500);
+    return;
+  }
+  cerrarEscaner();
+  const { data } = await db.from('clientes').select('id').eq('codigo', codigo).maybeSingle();
+  if (!data) { avisar('No se encontró el cliente de ese QR.', true); mostrar('pantalla-panel'); return; }
+  if (navigator.vibrate) navigator.vibrate(60);
+  await abrirCliente(data.id);
+}
+
+$('btn-escanear').addEventListener('click', abrirEscaner);
+$('escaner-volver').addEventListener('click', () => { cerrarEscaner(); mostrar('pantalla-panel'); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && flujo) { cerrarEscaner(); mostrar('pantalla-panel'); }
 });
 
 iniciar().catch((e) => {

@@ -145,6 +145,8 @@
     background: var(--superficie); border-left: 3px solid var(--linea);
   }
   .proximo.con-premio { border-left-color: var(--oro); background: var(--oro-tenue); }
+  .proximo.vencida { border-left-color: var(--error); background: rgba(232, 105, 95, 0.10); margin-bottom: 0; }
+  .proximo.vencida strong { color: var(--error); }
   .proximo strong { display: block; font-size: 17px; margin-bottom: 2px; }
   .proximo span { color: var(--plata); font-size: 14px; }
 
@@ -517,6 +519,18 @@ let yo = null;          // el barbero o admin que inició sesión
 let premios = [];       // premios activos
 let clienteActual = null;
 let selloNuevo = null;  // casillero recién marcado (para la animación)
+let diasVencimiento = 30; // se actualiza desde Reglas al entrar
+
+// Tarjeta que corresponde mostrar: si pasaron los días sin venir y tenía sellos,
+// la tarjeta abierta ya está vencida y el próximo corte inicia una nueva.
+function estadoTarjeta(c) {
+  const t = tarjetaAbierta(c) || { numero: 1, cortes: 0, lista: [] };
+  const fechas = (c.tarjetas || []).flatMap((x) => (x.lista || []).map((k) => new Date(k.fecha).getTime()));
+  const ultimo = fechas.length ? Math.max(...fechas) : null;
+  const vencida = t.cortes > 0 && ultimo !== null && ultimo < Date.now() - diasVencimiento * 86400000;
+  if (!vencida) return { t, vencida: false };
+  return { t: { numero: t.numero + 1, cortes: 0, lista: [] }, vencida: true, anterior: t, ultimo };
+}
 
 // ---------- Utilidades ----------
 function mostrar(id) {
@@ -601,6 +615,8 @@ async function entrar(usuario) {
   $('btn-admin').hidden = !esAdmin();
   const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
   premios = p.data || [];
+  const conf = await db.from('configuracion').select('dias_vencimiento').eq('id', 1).maybeSingle();
+  if (conf.data) diasVencimiento = conf.data.dias_vencimiento;
 
   // Si llegó escaneando el QR de un cliente, abrir directo su tarjeta
   const codigo = new URLSearchParams(location.search).get('c');
@@ -760,7 +776,8 @@ async function abrirCliente(id) {
 
 function dibujarCliente() {
   const c = clienteActual;
-  const t = tarjetaAbierta(c) || { numero: 1, cortes: 0, lista: [] };
+  const estado = estadoTarjeta(c);
+  const t = estado.t;
   const hechos = t.cortes;
 
   let sellos = '';
@@ -805,12 +822,16 @@ function dibujarCliente() {
   const siguiente = hechos + 1;
   const premioHoy = premios.find((p) => p.posicion === siguiente);
   const proximoPremio = premios.find((p) => p.posicion > siguiente);
+  const avisoVencida = estado.vencida
+    ? `<div class="proximo vencida"><strong>La tarjeta N° ${estado.anterior.numero} venció</strong>
+       <span>No viene hace más de ${diasVencimiento} días y perdió sus ${estado.anterior.cortes} ${estado.anterior.cortes === 1 ? 'sello' : 'sellos'}. Este corte abre la tarjeta N° ${t.numero}.</span></div>`
+    : '';
   if (premioHoy) {
-    $('proximo').innerHTML = `<div class="proximo con-premio">
+    $('proximo').innerHTML = avisoVencida + `<div class="proximo con-premio">
       <strong>Hoy es su corte N° ${siguiente}: ${esc(premioHoy.titulo)}</strong>
       <span>Aplicalo al cobrar. Se registra solo al marcar el corte.</span></div>`;
   } else {
-    $('proximo').innerHTML = `<div class="proximo">
+    $('proximo').innerHTML = avisoVencida + `<div class="proximo">
       <strong>Hoy es su corte N° ${siguiente}: precio normal</strong>
       <span>${proximoPremio ? `Próximo premio en el corte N° ${proximoPremio.posicion}: ${esc(proximoPremio.titulo)}.` : ''}</span></div>`;
   }
@@ -827,10 +848,10 @@ function dibujarCliente() {
 
 // ---------- Registrar corte ----------
 $('btn-registrar').addEventListener('click', () => {
-  const t = tarjetaAbierta(clienteActual) || { cortes: 0 };
-  const siguiente = t.cortes + 1;
+  const estado = estadoTarjeta(clienteActual);
+  const siguiente = estado.t.cortes + 1;
   const premio = premios.find((p) => p.posicion === siguiente);
-  $('dialogo-texto').textContent =
+  $('dialogo-texto').textContent = (estado.vencida ? `Su tarjeta venció: empieza la tarjeta N° ${estado.t.numero}. ` : '') +
     `¿Registrar el corte N° ${siguiente} de ${clienteActual.nombre} ${clienteActual.apellido}?`;
   $('dialogo-premio').textContent = premio ? `Este corte tiene: ${premio.titulo}` : '';
   $('dialogo').showModal();

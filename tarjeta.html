@@ -81,6 +81,12 @@
   }
   .proximo.con-premio { border-left-color: var(--oro); background: var(--oro-tenue); }
   .proximo strong { display: block; font-size: 17px; margin-bottom: 2px; }
+  .aviso-vencida {
+    margin: 0 0 16px; padding: 16px; border-radius: 12px;
+    border: 1px solid #e8695f; background: rgba(232, 105, 95, 0.10);
+  }
+  .aviso-vencida strong { display: block; font-size: 17px; margin-bottom: 4px; color: #e8695f; }
+  .aviso-vencida span { color: var(--blanco); font-size: 14px; }
   .proximo span { color: var(--plata); font-size: 14px; }
 
   h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 32px 0 8px; }
@@ -126,6 +132,7 @@
 
   <div id="contenido" hidden>
     <p class="saludo" id="saludo"></p>
+    <div class="aviso-vencida" id="aviso-vencida" role="status" hidden></div>
     <div id="tarjeta"></div>
     <div id="proximo"></div>
 
@@ -192,9 +199,22 @@ async function iniciar() {
   if (!t) { mostrarEstado('No encontramos esta tarjeta. Pedile tu QR a tu barbero.'); return; }
 
   const premios = t.premios || [];
-  const hechos = t.cortes;
+  // Si pasaron los días sin venir, la tarjeta ya venció: se muestra vacía y el próximo corte es el N° 1
+  const vencida = Boolean(t.vencida);
+  const hechos = vencida ? 0 : t.cortes;
+  const numeroTarjeta = vencida ? t.tarjeta + 1 : t.tarjeta;
+  const historial = vencida ? [] : (t.historial || []);
 
   $('saludo').textContent = `Hola, ${t.nombre}`;
+  $('aviso-vencida').hidden = !vencida;
+  if (vencida) {
+    $('aviso-vencida').innerHTML = `<strong>Tu tarjeta N° ${t.tarjeta} venció</strong>
+      <span>Pasaron más de ${Number(t.dias_vencimiento) || 30} días sin venir y se perdieron tus ${t.cortes} ${t.cortes === 1 ? 'sello' : 'sellos'}.
+      Con tu próximo corte empezás una tarjeta nueva. ¡Te esperamos!</span>`;
+  }
+  const venceTexto = !vencida && t.vence_el
+    ? ` · Válida hasta el ${new Date(t.vence_el).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`
+    : '';
 
   let sellos = '';
   for (let n = 1; n <= 10; n++) {
@@ -206,10 +226,10 @@ async function iniciar() {
       ${n}${premio ? `<small>${esc(etiquetaPremio(premio))}</small>` : ''}</div>`;
   }
   $('tarjeta').innerHTML = `<div class="membresia">
-    <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${t.tarjeta}</span></div>
+    <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${numeroTarjeta}</span></div>
     <div class="mem-nombre">${esc(t.nombre)} ${esc(t.apellido)}</div>
     <div class="sellos">${sellos}</div>
-    <div class="mem-pie">${hechos} de 10 cortes</div>
+    <div class="mem-pie">${hechos} de 10 cortes${venceTexto}</div>
   </div>`;
 
   const siguiente = hechos + 1;
@@ -234,7 +254,7 @@ async function iniciar() {
       <span class="${usado ? 'ok' : 'pendiente'}">${usado ? 'Usado' : 'Pendiente'}</span></li>`;
   }).join('');
 
-  const visitas = (t.historial || []).slice().reverse();
+  const visitas = historial.slice().reverse();
   $('visitas').innerHTML = visitas.length
     ? visitas.map((v) => `<li><span>Corte N° ${v.posicion}</span><span class="pendiente">${fecha(v.fecha)}</span></li>`).join('')
     : '<li><span class="pendiente">Todavía no tenés cortes en esta tarjeta.</span></li>';

@@ -338,6 +338,7 @@
     <button class="pestana" type="button" data-pestana="equipo">Equipo</button>
     <button class="pestana" type="button" data-pestana="premios">Premios</button>
     <button class="pestana" type="button" data-pestana="reglas">Reglas</button>
+    <button class="pestana" type="button" data-pestana="copia">Copia de seguridad</button>
   </nav>
 
   <div class="panel-admin" id="admin-resumen">
@@ -396,6 +397,14 @@
       <button class="btn btn-oro" type="submit">Agregar premio</button>
       <p class="mensaje-error" id="premio-error" role="alert"></p>
     </form>
+  </div>
+
+  <div class="panel-admin" id="admin-copia" hidden>
+    <p class="ayuda">Descarga un archivo Excel con todos tus datos: clientes, tarjetas, cortes, premios usados, cortes anulados, equipo, premios y reglas. Si algún día se pierde algo, con este archivo se puede recuperar.</p>
+    <div class="proximo" id="copia-estado"><strong>Todavía no descargaste ninguna copia en este dispositivo.</strong></div>
+    <button class="btn btn-oro" id="btn-copia" type="button">Descargar copia de seguridad</button>
+    <p class="mensaje-error" id="copia-error" role="alert"></p>
+    <p class="ayuda">Recomendado: una vez por semana. Guardala en tu compu o en Google Drive y no la compartas: tiene los teléfonos de tus clientes y los códigos de sus tarjetas.</p>
   </div>
 
   <div class="panel-admin" id="admin-reglas" hidden>
@@ -979,7 +988,7 @@ function abrirPestana(nombre) {
     b.classList.toggle('activa', b.dataset.pestana === nombre));
   document.querySelectorAll('.panel-admin').forEach((p) => { p.hidden = p.id !== 'admin-' + nombre; });
   ({ resumen: cargarResumen, movimientos: cargarMovimientos, equipo: cargarEquipo,
-     premios: cargarPremiosAdmin, reglas: cargarReglas })[nombre]();
+     premios: cargarPremiosAdmin, reglas: cargarReglas, copia: cargarCopia })[nombre]();
 }
 
 async function cargarResumen() {
@@ -1163,6 +1172,152 @@ $('form-reglas').addEventListener('submit', async (e) => {
     .update({ horas_entre_cortes: horas, dias_vencimiento: dias }).eq('id', 1);
   if (error) { $('reglas-error').textContent = error.message; return; }
   avisar('Reglas guardadas.');
+});
+
+// ---------- Copia de seguridad (Excel) ----------
+const CLAVE_ULTIMA_COPIA = 'wb-ultima-copia';
+
+function leerUltimaCopia() {
+  try { return localStorage.getItem(CLAVE_ULTIMA_COPIA); } catch { return null; }
+}
+
+function cargarCopia() {
+  $('copia-error').textContent = '';
+  const ultima = leerUltimaCopia();
+  const caja = $('copia-estado');
+  if (!ultima) {
+    caja.className = 'proximo con-premio';
+    caja.innerHTML = '<strong>Todavía no descargaste ninguna copia en este dispositivo.</strong>';
+    return;
+  }
+  const dias = Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000);
+  caja.className = dias >= 7 ? 'proximo con-premio' : 'proximo';
+  caja.innerHTML = `<strong>Última copia: ${esc(fechaHora(ultima))}</strong>
+    <span>${dias === 0 ? 'Hoy.' : `Hace ${dias} día${dias === 1 ? '' : 's'}.`}${dias >= 7 ? ' Ya conviene descargar una nueva.' : ''}</span>`;
+}
+
+// La librería para armar el Excel se carga solo cuando hace falta
+function cargarLibreriaExcel() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, mal) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.onload = ok;
+    s.onerror = () => mal(new Error('No se pudo cargar la herramienta de Excel. Revisá internet.'));
+    document.head.appendChild(s);
+  });
+}
+
+// Trae todas las filas de una tabla, de a 1000 (el máximo que da Supabase por vez)
+async function traerTodo(tabla, campos, orden) {
+  const filas = [];
+  for (let desde = 0; ; desde += 1000) {
+    let q = db.from(tabla).select(campos).range(desde, desde + 999);
+    if (orden) q = q.order(orden);
+    const { data, error } = await q;
+    if (error) throw new Error(`No se pudo leer "${tabla}": ${error.message}`);
+    filas.push(...data);
+    if (data.length < 1000) return filas;
+  }
+}
+
+function fechaExcel(f) {
+  if (!f) return '';
+  return new Date(f).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+$('btn-copia').addEventListener('click', async () => {
+  const boton = $('btn-copia');
+  $('copia-error').textContent = '';
+  boton.disabled = true;
+  boton.textContent = 'Preparando copia…';
+  try {
+    await cargarLibreriaExcel();
+    const [clientes, tarjetas, cortes, canjes, anulaciones, equipo, listaPremios, config] = await Promise.all([
+      traerTodo('clientes', 'id, nombre, apellido, telefono, responsable_id, codigo, creado_en', 'creado_en'),
+      traerTodo('tarjetas', 'id, cliente_id, numero, cortes, estado, creada_en, completada_en, cerrada_en', 'creada_en'),
+      traerTodo('cortes', 'tarjeta_id, posicion, barbero_id, fecha', 'fecha'),
+      traerTodo('canjes', 'tarjeta_id, posicion, barbero_id, fecha', 'fecha'),
+      traerTodo('anulaciones', 'cliente_id, tarjeta_numero, posicion, fecha_corte, anulado_por, fecha', 'fecha'),
+      traerTodo('personal', 'id, nombre, rol, activo, creado_en', 'nombre'),
+      traerTodo('premios', 'posicion, titulo, descripcion, activo', 'posicion'),
+      traerTodo('configuracion', 'horas_entre_cortes, dias_vencimiento'),
+    ]);
+
+    const persona = Object.fromEntries(equipo.map((p) => [p.id, p.nombre]));
+    const cliente = Object.fromEntries(clientes.map((c) => [c.id, c]));
+    const nombreCliente = (id) => (cliente[id] ? `${cliente[id].nombre} ${cliente[id].apellido}` : '(eliminado)');
+    const tarjeta = Object.fromEntries(tarjetas.map((t) => [t.id, t]));
+    const premioDe = Object.fromEntries(listaPremios.map((p) => [p.posicion, p.titulo]));
+
+    const hojas = {
+      Clientes: clientes.map((c) => ({
+        Nombre: c.nombre, Apellido: c.apellido, 'Teléfono': c.telefono || '',
+        'A cargo de': c.responsable_id ? nombreCliente(c.responsable_id) : '',
+        'Alta': fechaExcel(c.creado_en), 'Código QR': c.codigo,
+      })),
+      Tarjetas: tarjetas.map((t) => ({
+        Cliente: nombreCliente(t.cliente_id), 'Tarjeta N°': t.numero, Cortes: t.cortes, Estado: t.estado,
+        Creada: fechaExcel(t.creada_en), Completada: fechaExcel(t.completada_en), Cerrada: fechaExcel(t.cerrada_en),
+      })),
+      Cortes: cortes.map((x) => {
+        const t = tarjeta[x.tarjeta_id] || {};
+        return {
+          Fecha: fechaExcel(x.fecha), Cliente: nombreCliente(t.cliente_id), 'Tarjeta N°': t.numero ?? '',
+          'Corte N°': x.posicion, Barbero: persona[x.barbero_id] || '', Premio: premioDe[x.posicion] || '',
+        };
+      }),
+      'Premios usados': canjes.map((x) => {
+        const t = tarjeta[x.tarjeta_id] || {};
+        return {
+          Fecha: fechaExcel(x.fecha), Cliente: nombreCliente(t.cliente_id), 'Tarjeta N°': t.numero ?? '',
+          'Corte N°': x.posicion, Premio: premioDe[x.posicion] || '', Barbero: persona[x.barbero_id] || '',
+        };
+      }),
+      'Cortes anulados': anulaciones.map((a) => ({
+        'Anulado el': fechaExcel(a.fecha), Cliente: nombreCliente(a.cliente_id), 'Tarjeta N°': a.tarjeta_numero,
+        'Corte N°': a.posicion, 'Fecha del corte': fechaExcel(a.fecha_corte), 'Anulado por': persona[a.anulado_por] || '',
+      })),
+      Equipo: equipo.map((p) => ({
+        Nombre: p.nombre, Rol: p.rol, Activo: p.activo ? 'Sí' : 'No', Alta: fechaExcel(p.creado_en),
+      })),
+      Premios: listaPremios.map((p) => ({
+        'Corte N°': p.posicion, Premio: p.titulo, 'Descripción': p.descripcion || '', Activo: p.activo ? 'Sí' : 'No',
+      })),
+      Reglas: config.map((r) => ({
+        'Horas entre cortes': r.horas_entre_cortes, 'Días para vencer': r.dias_vencimiento,
+      })),
+    };
+
+    const libro = XLSX.utils.book_new();
+    Object.entries(hojas).forEach(([nombre, filas]) => {
+      const hoja = filas.length
+        ? XLSX.utils.json_to_sheet(filas)
+        : XLSX.utils.aoa_to_sheet([['(sin datos)']]);
+      const columnas = filas.length ? Object.keys(filas[0]) : ['x'];
+      hoja['!cols'] = columnas.map((col) => ({
+        wch: Math.min(40, Math.max(col.length, ...filas.map((f) => String(f[col] ?? '').length)) + 2),
+      }));
+      XLSX.utils.book_append_sheet(libro, hoja, nombre);
+    });
+
+    const hoy = new Date();
+    const dosDig = (n) => String(n).padStart(2, '0');
+    const archivo = `white-barber-copia-${hoy.getFullYear()}-${dosDig(hoy.getMonth() + 1)}-${dosDig(hoy.getDate())}.xlsx`;
+    XLSX.writeFile(libro, archivo);
+
+    try { localStorage.setItem(CLAVE_ULTIMA_COPIA, hoy.toISOString()); } catch {}
+    cargarCopia();
+    const plural = (n, palabra) => `${n} ${palabra}${n === 1 ? '' : 's'}`;
+    avisar(`Copia descargada: ${plural(clientes.length, 'cliente')} y ${plural(cortes.length, 'corte')}.`);
+  } catch (err) {
+    $('copia-error').textContent = err.message || 'No se pudo armar la copia. Probá de nuevo.';
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Descargar copia de seguridad';
+  }
 });
 
 // ---------- Lector de QR dentro del panel ----------

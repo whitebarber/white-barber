@@ -230,6 +230,13 @@
   .a-cargo { color: var(--plata); font-size: 14px; margin: 12px 0 0; }
   .lista-hijos { margin: 0 0 12px; }
   .item-hijo .item-nombre::before { content: '↳ '; color: var(--oro); }
+
+  /* Recuperar clientes */
+  .fila-recuperar .quien { flex: 1; min-width: 0; }
+  .fila-recuperar .link { font-size: 16px; text-decoration: none; color: var(--blanco); text-align: left; }
+  .fila-recuperar .contactado { color: var(--oro); }
+  a.btn-chico { text-decoration: none; display: inline-block; }
+  a.btn-chico.hecho { border-color: var(--linea); color: var(--plata); }
 </style>
 </head>
 <body>
@@ -334,6 +341,7 @@
   </header>
   <nav class="nav-admin" aria-label="Secciones de administración">
     <button class="pestana activa" type="button" data-pestana="resumen">Resumen</button>
+    <button class="pestana" type="button" data-pestana="recuperar">Recuperar</button>
     <button class="pestana" type="button" data-pestana="movimientos">Movimientos</button>
     <button class="pestana" type="button" data-pestana="equipo">Equipo</button>
     <button class="pestana" type="button" data-pestana="premios">Premios</button>
@@ -350,6 +358,14 @@
     </div>
     <h2>Cortes por barbero este mes</h2>
     <ul class="filas" id="lista-por-barbero"></ul>
+  </div>
+
+  <div class="panel-admin" id="admin-recuperar" hidden>
+    <p class="ayuda" id="recuperar-ayuda"></p>
+    <h2>⏳ Tarjeta por vencer</h2>
+    <ul class="filas" id="lista-por-vencer"></ul>
+    <h2>💤 Hace mucho que no vienen</h2>
+    <ul class="filas" id="lista-inactivos"></ul>
   </div>
 
   <div class="panel-admin" id="admin-movimientos" hidden>
@@ -987,7 +1003,7 @@ function abrirPestana(nombre) {
   document.querySelectorAll('[data-pestana]').forEach((b) =>
     b.classList.toggle('activa', b.dataset.pestana === nombre));
   document.querySelectorAll('.panel-admin').forEach((p) => { p.hidden = p.id !== 'admin-' + nombre; });
-  ({ resumen: cargarResumen, movimientos: cargarMovimientos, equipo: cargarEquipo,
+  ({ resumen: cargarResumen, recuperar: cargarRecuperar, movimientos: cargarMovimientos, equipo: cargarEquipo,
      premios: cargarPremiosAdmin, reglas: cargarReglas, copia: cargarCopia })[nombre]();
 }
 
@@ -1173,6 +1189,92 @@ $('form-reglas').addEventListener('submit', async (e) => {
   if (error) { $('reglas-error').textContent = error.message; return; }
   avisar('Reglas guardadas.');
 });
+
+// ---------- Recuperar clientes ----------
+let paraRecuperar = [];
+
+function mensajeRecuperar(c) {
+  const hijo = Boolean(c.responsable);
+  const saludo = `¡Hola ${hijo ? c.responsable : c.nombre}! Te escribimos de WHITE BARBER.`;
+  if (c.tipo === 'por_vencer') {
+    const vence = c.dias_restantes <= 0 ? 'vence hoy'
+      : c.dias_restantes === 1 ? 'vence mañana' : `vence en ${c.dias_restantes} días`;
+    return hijo
+      ? `${saludo} ${c.nombre} tiene ${c.sellos} de 10 cortes en su tarjeta y ${vence}. ¡Lo esperamos para que no los pierda!`
+      : `${saludo} Tenés ${c.sellos} de 10 cortes en tu tarjeta y ${vence}. ¡Te esperamos para que no los pierdas!`;
+  }
+  return hijo
+    ? `¡Hola ${c.responsable}! Hace un tiempo que no vemos a ${c.nombre} en WHITE BARBER. ¡Lo esperamos cuando quieran!`
+    : `¡Hola ${c.nombre}! Hace un tiempo que no te vemos en WHITE BARBER. ¡Te extrañamos! Cuando quieras, te esperamos.`;
+}
+
+function filaRecuperar(c) {
+  const partes = [`Hace ${c.dias_sin_venir} días`];
+  if (c.sellos) partes.push(c.tipo === 'por_vencer' ? `${c.sellos}/10 sellos` : `tenía ${c.sellos}/10 sellos (ya vencidos)`);
+  if (c.tipo === 'por_vencer') {
+    partes.push(c.dias_restantes <= 0 ? 'vence hoy' : `vence en ${c.dias_restantes} día${c.dias_restantes === 1 ? '' : 's'}`);
+  }
+  const aQuien = c.responsable ? `<small>Hijo/a · se le escribe a ${esc(c.responsable)}</small>` : '';
+  const hecho = c.contactado
+    ? `<small class="contactado">✓ Escrito el ${esc(fecha(c.contactado))}</small>` : '';
+  const wa = `https://wa.me/${numeroWhatsApp(c.telefono)}?text=${encodeURIComponent(mensajeRecuperar(c))}`;
+  return `<li class="fila fila-recuperar">
+    <span class="quien">
+      <button class="link" type="button" data-abrir="${c.id}">${esc(c.nombre)} ${esc(c.apellido)}</button>
+      <small>${partes.join(' · ')}</small>${aQuien}${hecho}
+    </span>
+    <a class="btn-chico${c.contactado ? ' hecho' : ''}" href="${wa}" target="_blank" rel="noopener" data-contactar="${c.id}">
+      ${c.contactado ? 'Escribir de nuevo' : 'WhatsApp'}</a>
+  </li>`;
+}
+
+async function cargarRecuperar() {
+  const conf = await db.from('configuracion').select('dias_vencimiento').eq('id', 1).single();
+  const dias = conf.data ? conf.data.dias_vencimiento : 30;
+  $('recuperar-ayuda').textContent =
+    `Las tarjetas vencen a los ${dias} días sin venir. Acá ves a quién conviene escribirle: ` +
+    `los que tienen sellos y les vence en 5 días o menos, y los que ya pasaron los ${dias} días. ` +
+    'Al tocar WhatsApp se abre el chat con el mensaje listo y el cliente queda marcado como escrito.';
+  ['lista-por-vencer', 'lista-inactivos'].forEach((id) => { $(id).innerHTML = '<li class="vacio">Cargando…</li>'; });
+
+  const { data, error } = await db.rpc('clientes_para_recuperar');
+  if (error) {
+    $('lista-por-vencer').innerHTML = '<li class="vacio">No se pudo cargar la lista. Revisá la conexión.</li>';
+    $('lista-inactivos').innerHTML = '';
+    return;
+  }
+  paraRecuperar = data || [];
+  dibujarRecuperar();
+}
+
+function dibujarRecuperar() {
+  // Primero los que todavía no recibieron mensaje
+  const orden = (a, b) => (Boolean(a.contactado) - Boolean(b.contactado))
+    || (a.tipo === 'por_vencer' ? a.dias_restantes - b.dias_restantes : a.dias_sin_venir - b.dias_sin_venir);
+  const porVencer = paraRecuperar.filter((c) => c.tipo === 'por_vencer').sort(orden);
+  const inactivos = paraRecuperar.filter((c) => c.tipo === 'inactivo').sort(orden);
+  $('lista-por-vencer').innerHTML = porVencer.length
+    ? porVencer.map(filaRecuperar).join('')
+    : '<li class="vacio">Ninguna tarjeta por vencer. ¡Bien!</li>';
+  $('lista-inactivos').innerHTML = inactivos.length
+    ? inactivos.map(filaRecuperar).join('')
+    : '<li class="vacio">No hay clientes inactivos.</li>';
+}
+
+['lista-por-vencer', 'lista-inactivos'].forEach((id) => $(id).addEventListener('click', (e) => {
+  const abrir = e.target.closest('[data-abrir]');
+  if (abrir) { abrirCliente(abrir.dataset.abrir); return; }
+  const enlace = e.target.closest('[data-contactar]');
+  if (!enlace) return;
+  const c = paraRecuperar.find((x) => x.id === enlace.dataset.contactar);
+  if (!c) return;
+  // El chat se abre igual; en paralelo queda registrado que se le escribió
+  db.from('contactos').insert({ cliente_id: c.id, tipo: c.tipo, admin_id: yo.id }).then(({ error }) => {
+    if (error) { avisar('Se abrió WhatsApp, pero no se pudo marcar como escrito.', true); return; }
+    c.contactado = new Date().toISOString();
+    dibujarRecuperar();
+  });
+}));
 
 // ---------- Copia de seguridad (Excel) ----------
 const CLAVE_ULTIMA_COPIA = 'wb-ultima-copia';

@@ -104,6 +104,7 @@
   .item-nombre { font-weight: 500; }
   .item-tel { font-size: 14px; color: var(--plata); }
   .item-progreso { font-family: var(--serif); font-size: 22px; color: var(--oro); }
+  .item-progreso.vencida, .txt-vencida { color: var(--error); }
   .vacio { color: var(--plata); text-align: center; padding: 32px 0; }
 
   /* Tarjeta de membresía */
@@ -656,7 +657,15 @@ $('btn-salir').addEventListener('click', async () => {
 });
 
 // ---------- Búsqueda de clientes ----------
-const CAMPOS_LISTA = 'id, nombre, apellido, telefono, responsable_id, tarjetas(id, numero, cortes, estado)';
+const CAMPOS_LISTA = 'id, nombre, apellido, telefono, responsable_id, tarjetas(id, numero, cortes, estado, lista:cortes(fecha))';
+
+// Número de la derecha en las listas: "4/10", o "0/10" en rojo si la tarjeta ya venció
+function progresoLista(c) {
+  const e = estadoTarjeta(c);
+  return e.vencida
+    ? `<span class="item-progreso vencida" title="Tarjeta vencida">0/10</span>`
+    : `<span class="item-progreso">${e.t.cortes}/10</span>`;
+}
 
 // Ordena la lista para que cada hijo/a aparezca debajo de su papá o mamá,
 // y suma los hijos de los clientes encontrados (así buscando al papá aparecen sus hijos).
@@ -706,14 +715,14 @@ async function buscar(texto) {
   }
   const { lista: familias, nombres } = await agruparFamilias(data);
   lista.innerHTML = familias.map((c) => {
-    const t = tarjetaAbierta(c);
-    const detalle = c.responsable_id
+    let detalle = c.responsable_id
       ? `Hijo/a de ${esc(nombres[c.responsable_id] || 'otro cliente')}`
       : esc(c.telefono);
+    if (estadoTarjeta(c).vencida) detalle += ' · <span class="txt-vencida">Tarjeta vencida</span>';
     return `<li><button class="item${c.responsable_id ? ' item-hijo' : ''}" type="button" data-id="${c.id}">
       <span><span class="item-nombre">${esc(c.nombre)} ${esc(c.apellido)}</span><br>
       <span class="item-tel">${detalle}</span></span>
-      <span class="item-progreso">${t ? t.cortes : 0}/10</span>
+      ${progresoLista(c)}
     </button></li>`;
   }).join('');
 }
@@ -764,7 +773,7 @@ async function abrirCliente(id) {
     data.responsable_id
       ? db.from('clientes').select('id, nombre, apellido, telefono').eq('id', data.responsable_id).maybeSingle()
       : { data: null },
-    db.from('clientes').select('id, nombre, apellido, tarjetas(id, numero, cortes, estado)')
+    db.from('clientes').select('id, nombre, apellido, tarjetas(id, numero, cortes, estado, lista:cortes(fecha))')
       .eq('responsable_id', data.id).order('nombre'),
   ]);
   data.responsable = resp.data || null;
@@ -805,10 +814,9 @@ function dibujarCliente() {
   // Solo un cliente con teléfono propio y sin responsable puede tener hijos a cargo
   $('seccion-hijos').hidden = !(c.telefono && !c.responsable_id);
   $('lista-hijos').innerHTML = c.hijos.map((h) => {
-    const th = tarjetaAbierta(h);
     return `<li><button class="item item-hijo" type="button" data-id="${h.id}">
-      <span class="item-nombre">${esc(h.nombre)} ${esc(h.apellido)}</span>
-      <span class="item-progreso">${th ? th.cortes : 0}/10</span>
+      <span class="item-nombre">${esc(h.nombre)} ${esc(h.apellido)}${estadoTarjeta(h).vencida ? ' <small class="txt-vencida">· vencida</small>' : ''}</span>
+      ${progresoLista(h)}
     </button></li>`;
   }).join('');
 

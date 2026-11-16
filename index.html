@@ -225,6 +225,11 @@
     padding: 14px 16px; border-radius: 12px; font-weight: 500; z-index: 10;
   }
   .aviso.mal { background: var(--error); color: var(--negro); }
+
+  /* Hijos/as */
+  .a-cargo { color: var(--plata); font-size: 14px; margin: 12px 0 0; }
+  .lista-hijos { margin: 0 0 12px; }
+  .item-hijo .item-nombre::before { content: '↳ '; color: var(--oro); }
 </style>
 </head>
 <body>
@@ -290,6 +295,7 @@
     <button class="btn btn-oro" id="btn-guardar" type="submit">Guardar cliente</button>
     <p class="mensaje-error" id="nuevo-error" role="alert"></p>
   </form>
+  <p class="ayuda">¿Es un chico sin celular? Buscá al papá o la mamá, abrí su tarjeta y tocá “Agregar hijo/a”.</p>
 </section>
 
 <!-- PANTALLA: TARJETA DEL CLIENTE -->
@@ -299,11 +305,18 @@
     <span class="marca">WHITE BARBER</span>
   </header>
   <div id="tarjeta"></div>
+  <p class="a-cargo" id="a-cargo" hidden></p>
   <div id="proximo"></div>
   <button class="btn btn-oro" id="btn-registrar" type="button">Registrar corte</button>
   <button class="btn btn-borde" id="btn-qr" type="button">Ver QR y enviar tarjeta</button>
   <h2>Cortes de esta tarjeta</h2>
   <ul class="historial" id="historial"></ul>
+
+  <div id="seccion-hijos">
+    <h2>Hijos/as</h2>
+    <ul class="lista lista-hijos" id="lista-hijos"></ul>
+    <button class="btn btn-borde" id="btn-agregar-hijo" type="button">+ Agregar hijo/a</button>
+  </div>
 
   <div class="admin-opciones" id="admin-cliente" hidden>
     <h2>Opciones de administrador</h2>
@@ -437,12 +450,29 @@
     <input id="editar-nombre" autocomplete="off" required>
     <label for="editar-apellido">Apellido</label>
     <input id="editar-apellido" autocomplete="off" required>
-    <label for="editar-telefono">Teléfono</label>
-    <input id="editar-telefono" type="tel" inputmode="numeric" required>
+    <label for="editar-telefono" id="editar-telefono-label">Teléfono</label>
+    <input id="editar-telefono" type="tel" inputmode="numeric">
     <p class="mensaje-error" id="editar-error" role="alert"></p>
     <div class="botones">
       <button class="btn btn-oro" type="submit">Guardar cambios</button>
       <button class="btn btn-borde" id="editar-cancelar" type="button">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- VENTANA: AGREGAR HIJO/A -->
+<dialog id="dialogo-hijo">
+  <p class="qr-titulo">Agregar hijo/a</p>
+  <p class="ayuda" id="hijo-ayuda"></p>
+  <form id="form-hijo">
+    <label for="hijo-nombre">Nombre</label>
+    <input id="hijo-nombre" autocomplete="off" autocapitalize="words" required>
+    <label for="hijo-apellido">Apellido</label>
+    <input id="hijo-apellido" autocomplete="off" autocapitalize="words" required>
+    <p class="mensaje-error" id="hijo-error" role="alert"></p>
+    <div class="botones">
+      <button class="btn btn-oro" id="btn-guardar-hijo" type="submit">Registrar hijo/a</button>
+      <button class="btn btn-borde" id="hijo-cancelar" type="button">Cancelar</button>
     </div>
   </form>
 </dialog>
@@ -585,11 +615,38 @@ $('btn-salir').addEventListener('click', async () => {
 });
 
 // ---------- Búsqueda de clientes ----------
+const CAMPOS_LISTA = 'id, nombre, apellido, telefono, responsable_id, tarjetas(id, numero, cortes, estado)';
+
+// Ordena la lista para que cada hijo/a aparezca debajo de su papá o mamá,
+// y suma los hijos de los clientes encontrados (así buscando al papá aparecen sus hijos).
+async function agruparFamilias(data) {
+  const ids = data.map((c) => c.id);
+  const idsResp = [...new Set(data.map((c) => c.responsable_id).filter(Boolean))];
+  const [hijos, resps] = await Promise.all([
+    ids.length ? db.from('clientes').select(CAMPOS_LISTA).in('responsable_id', ids).order('nombre') : { data: [] },
+    idsResp.length ? db.from('clientes').select('id, nombre, apellido').in('id', idsResp) : { data: [] },
+  ]);
+  const nombres = {};
+  (resps.data || []).forEach((r) => { nombres[r.id] = `${r.nombre} ${r.apellido}`; });
+  data.forEach((c) => { nombres[c.id] = `${c.nombre} ${c.apellido}`; });
+
+  const enLista = new Set(ids);
+  const resultado = [];
+  const puestos = new Set();
+  const poner = (c) => { if (!puestos.has(c.id)) { puestos.add(c.id); resultado.push(c); } };
+  data.forEach((c) => {
+    if (c.responsable_id && enLista.has(c.responsable_id)) return; // va debajo de su responsable
+    poner(c);
+    (hijos.data || []).filter((h) => h.responsable_id === c.id).forEach(poner);
+  });
+  return { lista: resultado, nombres };
+}
+
 async function buscar(texto) {
   const limpio = texto.replace(/[,()%*\\]/g, '').trim();
   const digitos = limpio.replace(/\D/g, '');
   let consulta = db.from('clientes')
-    .select('id, nombre, apellido, telefono, tarjetas(id, numero, cortes, estado)')
+    .select(CAMPOS_LISTA)
     .order('creado_en', { ascending: false })
     .limit(30);
   if (limpio) {
@@ -606,11 +663,15 @@ async function buscar(texto) {
       : '<li class="vacio">Todavía no hay clientes. Registrá el primero con “Nuevo cliente”.</li>';
     return;
   }
-  lista.innerHTML = data.map((c) => {
+  const { lista: familias, nombres } = await agruparFamilias(data);
+  lista.innerHTML = familias.map((c) => {
     const t = tarjetaAbierta(c);
-    return `<li><button class="item" type="button" data-id="${c.id}">
+    const detalle = c.responsable_id
+      ? `Hijo/a de ${esc(nombres[c.responsable_id] || 'otro cliente')}`
+      : esc(c.telefono);
+    return `<li><button class="item${c.responsable_id ? ' item-hijo' : ''}" type="button" data-id="${c.id}">
       <span><span class="item-nombre">${esc(c.nombre)} ${esc(c.apellido)}</span><br>
-      <span class="item-tel">${esc(c.telefono)}</span></span>
+      <span class="item-tel">${detalle}</span></span>
       <span class="item-progreso">${t ? t.cortes : 0}/10</span>
     </button></li>`;
   }).join('');
@@ -655,9 +716,18 @@ $('form-nuevo').addEventListener('submit', async (e) => {
 // ---------- Tarjeta del cliente ----------
 async function abrirCliente(id) {
   const { data, error } = await db.from('clientes')
-    .select('id, nombre, apellido, telefono, codigo, tarjetas(id, numero, cortes, estado, lista:cortes(posicion, fecha))')
+    .select('id, nombre, apellido, telefono, codigo, responsable_id, tarjetas(id, numero, cortes, estado, lista:cortes(posicion, fecha))')
     .eq('id', id).single();
   if (error) { avisar('No se pudo abrir el cliente. Probá de nuevo.', true); return; }
+  const [resp, hijos] = await Promise.all([
+    data.responsable_id
+      ? db.from('clientes').select('id, nombre, apellido, telefono').eq('id', data.responsable_id).maybeSingle()
+      : { data: null },
+    db.from('clientes').select('id, nombre, apellido, tarjetas(id, numero, cortes, estado)')
+      .eq('responsable_id', data.id).order('nombre'),
+  ]);
+  data.responsable = resp.data || null;
+  data.hijos = hijos.data || [];
   clienteActual = data;
   dibujarCliente();
   mostrar('pantalla-cliente');
@@ -680,6 +750,25 @@ function dibujarCliente() {
   }
   selloNuevo = null;
   $('admin-cliente').hidden = !esAdmin();
+
+  // Responsable (si es hijo/a) e hijos (si es papá o mamá)
+  const aCargo = $('a-cargo');
+  if (c.responsable) {
+    aCargo.innerHTML = `Hijo/a de <button class="link" type="button" data-id="${c.responsable.id}">${esc(c.responsable.nombre)} ${esc(c.responsable.apellido)}</button>` +
+      (c.telefono ? '' : ' · la tarjeta se envía a su WhatsApp');
+    aCargo.hidden = false;
+  } else {
+    aCargo.hidden = true;
+  }
+  // Solo un cliente con teléfono propio y sin responsable puede tener hijos a cargo
+  $('seccion-hijos').hidden = !(c.telefono && !c.responsable_id);
+  $('lista-hijos').innerHTML = c.hijos.map((h) => {
+    const th = tarjetaAbierta(h);
+    return `<li><button class="item item-hijo" type="button" data-id="${h.id}">
+      <span class="item-nombre">${esc(h.nombre)} ${esc(h.apellido)}</span>
+      <span class="item-progreso">${th ? th.cortes : 0}/10</span>
+    </button></li>`;
+  }).join('');
 
   $('tarjeta').innerHTML = `<div class="membresia">
     <div class="mem-arriba"><span class="marca">WHITE BARBER</span><span class="mem-numero">Tarjeta N° ${t.numero}</span></div>
@@ -757,9 +846,17 @@ $('btn-qr').addEventListener('click', () => {
     caja.textContent = 'No se pudo generar el QR. Usá “Enviar por WhatsApp”.';
     caja.style.color = '#000';
   }
-  const mensaje = `¡Hola ${c.nombre}! Esta es tu tarjeta de fidelización de WHITE BARBER. ` +
+  let telefono = c.telefono;
+  let mensaje = `¡Hola ${c.nombre}! Esta es tu tarjeta de fidelización de WHITE BARBER. ` +
     `Guardá este enlace para ver tus cortes y premios: ${enlace}`;
-  $('qr-whatsapp').href = `https://wa.me/${numeroWhatsApp(c.telefono)}?text=${encodeURIComponent(mensaje)}`;
+  if (!telefono && c.responsable) {
+    telefono = c.responsable.telefono;
+    mensaje = `¡Hola ${c.responsable.nombre}! Te paso la tarjeta de fidelización de ${c.nombre} en WHITE BARBER. ` +
+      `Guardá este enlace para ver sus cortes y premios: ${enlace}`;
+  }
+  const wa = $('qr-whatsapp');
+  wa.hidden = !telefono;
+  if (telefono) wa.href = `https://wa.me/${numeroWhatsApp(telefono)}?text=${encodeURIComponent(mensaje)}`;
   $('dialogo-qr').showModal();
 });
 
@@ -773,6 +870,37 @@ $('qr-copiar').addEventListener('click', async () => {
   }
 });
 $('qr-cerrar').addEventListener('click', () => $('dialogo-qr').close());
+
+// ---------- Hijos/as ----------
+['lista-hijos', 'a-cargo'].forEach((id) => $(id).addEventListener('click', (e) => {
+  const b = e.target.closest('[data-id]');
+  if (b) abrirCliente(b.dataset.id);
+}));
+
+$('btn-agregar-hijo').addEventListener('click', () => {
+  const c = clienteActual;
+  $('form-hijo').reset();
+  $('hijo-apellido').value = c.apellido;
+  $('hijo-error').textContent = '';
+  $('hijo-ayuda').textContent = `Queda a cargo de ${c.nombre} ${c.apellido}: tiene su propia tarjeta y se le envía a su WhatsApp.`;
+  $('dialogo-hijo').showModal();
+  $('hijo-nombre').focus();
+});
+$('hijo-cancelar').addEventListener('click', () => $('dialogo-hijo').close());
+$('form-hijo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('btn-guardar-hijo').disabled = true;
+  const { data, error } = await db.rpc('registrar_hijo', {
+    p_responsable_id: clienteActual.id,
+    p_nombre: $('hijo-nombre').value,
+    p_apellido: $('hijo-apellido').value,
+  });
+  $('btn-guardar-hijo').disabled = false;
+  if (error) { $('hijo-error').textContent = error.message; return; }
+  $('dialogo-hijo').close();
+  avisar(`${data.nombre} ${data.apellido} ya tiene su tarjeta.`);
+  abrirCliente(data.id);
+});
 
 // ---------- Opciones de administrador en la tarjeta ----------
 $('btn-anular').addEventListener('click', async () => {
@@ -789,21 +917,30 @@ $('btn-editar').addEventListener('click', () => {
   const c = clienteActual;
   $('editar-nombre').value = c.nombre;
   $('editar-apellido').value = c.apellido;
-  $('editar-telefono').value = c.telefono;
+  $('editar-telefono').value = c.telefono || '';
+  $('editar-telefono-label').textContent = c.responsable_id
+    ? 'Teléfono propio (opcional). Si le cargás uno, pasa a ser cliente independiente y conserva sus sellos.'
+    : 'Teléfono';
   $('editar-error').textContent = '';
   $('dialogo-editar').showModal();
 });
 $('editar-cancelar').addEventListener('click', () => $('dialogo-editar').close());
 $('form-editar').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const telefono = $('editar-telefono').value.replace(/\D/g, '');
-  if (telefono.length < 8) { $('editar-error').textContent = 'El teléfono debe tener al menos 8 números.'; return; }
+  const digitos = $('editar-telefono').value.replace(/\D/g, '');
+  const telefono = digitos || null;
+  if (!telefono && !clienteActual.responsable_id) { $('editar-error').textContent = 'Completá el teléfono.'; return; }
+  if (telefono && telefono.length < 8) { $('editar-error').textContent = 'El teléfono debe tener al menos 8 números.'; return; }
+  if (!telefono && clienteActual.hijos.length) { $('editar-error').textContent = 'Tiene hijos a cargo: necesita un teléfono.'; return; }
   const capital = (t) => t.trim().toLowerCase().replace(/(^|\s)\S/g, (l) => l.toUpperCase());
-  const { error } = await db.from('clientes').update({
+  const cambios = {
     nombre: capital($('editar-nombre').value),
     apellido: capital($('editar-apellido').value),
     telefono,
-  }).eq('id', clienteActual.id);
+  };
+  // Un hijo/a al que se le carga teléfono propio pasa a ser cliente independiente
+  if (telefono && clienteActual.responsable_id) cambios.responsable_id = null;
+  const { error } = await db.from('clientes').update(cambios).eq('id', clienteActual.id);
   if (error) {
     $('editar-error').textContent = error.code === '23505' ? 'Ya existe otro cliente con ese teléfono.' : error.message;
     return;
@@ -815,6 +952,10 @@ $('form-editar').addEventListener('submit', async (e) => {
 
 $('btn-eliminar').addEventListener('click', async () => {
   const c = clienteActual;
+  if (c.hijos.length) {
+    avisar(`${c.nombre} tiene hijos registrados (${c.hijos.map((h) => h.nombre).join(', ')}). Primero cargales un teléfono propio o eliminalos.`, true);
+    return;
+  }
   const ok = await confirmar(`¿Eliminar a ${c.nombre} ${c.apellido}? Se borran su tarjeta, sus cortes y sus premios. Esto no se puede deshacer.`, 'Sí, eliminar');
   if (!ok) return;
   const { error } = await db.from('clientes').delete().eq('id', c.id);

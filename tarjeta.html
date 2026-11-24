@@ -88,6 +88,8 @@
   .aviso-vencida strong { display: block; font-size: 17px; margin-bottom: 4px; color: #e8695f; }
   .aviso-vencida span { color: var(--blanco); font-size: 14px; }
   .proximo span { color: var(--plata); font-size: 14px; }
+  .monto { font-family: var(--serif); font-size: 30px; color: var(--oro); margin: 6px 0 4px; font-variant-numeric: lining-nums; }
+  .monto s { font-family: var(--sans); font-size: 15px; color: var(--plata); margin-left: 6px; }
 
   h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 32px 0 8px; }
   .lista { list-style: none; padding: 0; margin: 0; }
@@ -168,6 +170,17 @@ function etiquetaPremio(p) {
   if (/gratis/i.test(p.titulo)) return 'Gratis';
   return 'Premio';
 }
+// Cuánto paga el cliente con ese premio (null si el premio no es un % ni gratis)
+function montoConPremio(p, precio) {
+  if (!precio) return null;
+  if (/gratis/i.test(p.titulo)) return 0;
+  const pct = p.titulo.match(/(\d+)\s*%/);
+  if (pct) return Math.round(precio * (100 - Number(pct[1])) / 100);
+  return null;
+}
+function pesos(n) {
+  return '$' + Number(n).toLocaleString('es-AR');
+}
 function mostrarEstado(texto) {
   $('estado').innerHTML = esc(texto);
   $('estado').hidden = false;
@@ -199,6 +212,7 @@ async function iniciar() {
   if (!t) { mostrarEstado('No encontramos esta tarjeta. Pedile tu QR a tu barbero.'); return; }
 
   const premios = t.premios || [];
+  const precio = Number(t.precio_corte) || 0;
   // Si pasaron los días sin venir, la tarjeta ya venció: se muestra vacía y el próximo corte es el N° 1
   const vencida = Boolean(t.vencida);
   const hechos = vencida ? 0 : t.cortes;
@@ -235,9 +249,11 @@ async function iniciar() {
   const siguiente = hechos + 1;
   const premioHoy = premios.find((p) => p.posicion === siguiente);
   const proximoPremio = premios.find((p) => p.posicion > hechos);
+  const montoHoy = premioHoy ? montoConPremio(premioHoy, precio) : null;
   if (premioHoy) {
     $('proximo').innerHTML = `<div class="proximo con-premio">
       <strong>${/gratis/i.test(premioHoy.titulo) ? '¡Tu próximo corte es GRATIS!' : 'Tu próximo corte tiene ' + esc(premioHoy.titulo)}</strong>
+      ${montoHoy !== null ? `<div class="monto">Pagás ${pesos(montoHoy)} <s>${pesos(precio)}</s></div>` : ''}
       <span>Se aplica automáticamente cuando tu barbero registra el corte.</span></div>`;
   } else if (proximoPremio) {
     const faltan = proximoPremio.posicion - hechos;
@@ -250,7 +266,9 @@ async function iniciar() {
 
   $('premios').innerHTML = premios.map((p) => {
     const usado = p.posicion <= hechos;
-    return `<li><span>Corte N° ${p.posicion}: ${esc(p.titulo)}</span>
+    const monto = montoConPremio(p, precio);
+    const pagas = !usado && monto !== null ? ` · pagás ${pesos(monto)}` : '';
+    return `<li><span>Corte N° ${p.posicion}: ${esc(p.titulo)}${pagas}</span>
       <span class="${usado ? 'ok' : 'pendiente'}">${usado ? 'Usado' : 'Pendiente'}</span></li>`;
   }).join('');
 

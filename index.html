@@ -150,6 +150,8 @@
   .proximo.vencida strong { color: var(--error); }
   .proximo strong { display: block; font-size: 17px; margin-bottom: 2px; }
   .proximo span { color: var(--plata); font-size: 14px; }
+  .monto { font-family: var(--serif); font-size: 30px; color: var(--oro); margin: 6px 0 4px; font-variant-numeric: lining-nums; }
+  .monto s { font-family: var(--sans); font-size: 15px; color: var(--plata); margin-left: 6px; }
 
   /* Historial */
   h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 32px 0 8px; }
@@ -432,6 +434,8 @@
       <input id="regla-horas" type="number" min="0" max="72" inputmode="numeric" required>
       <label for="regla-dias">Días sin venir para que venza la tarjeta</label>
       <input id="regla-dias" type="number" min="7" max="365" inputmode="numeric" required>
+      <label for="regla-precio">Precio del corte en pesos (sin puntos, ej.: 12000)</label>
+      <input id="regla-precio" type="number" min="0" max="10000000" step="1" inputmode="numeric" required>
       <div class="espacio"></div>
       <button class="btn btn-oro" type="submit">Guardar reglas</button>
       <p class="mensaje-error" id="reglas-error" role="alert"></p>
@@ -521,6 +525,7 @@ let premios = [];       // premios activos
 let clienteActual = null;
 let selloNuevo = null;  // casillero recién marcado (para la animación)
 let diasVencimiento = 30; // se actualiza desde Reglas al entrar
+let precioCorte = 0;      // precio del corte, se edita en Reglas
 
 // Tarjeta que corresponde mostrar: si pasaron los días sin venir y tenía sellos,
 // la tarjeta abierta ya está vencida y el próximo corte inicia una nueva.
@@ -558,6 +563,17 @@ function etiquetaPremio(p) {
   if (pct) return pct[0].replace(/\s/g, '');
   if (/gratis/i.test(p.titulo)) return 'Gratis';
   return 'Premio';
+}
+// Cuánto paga el cliente con ese premio (null si el premio no es un % ni gratis)
+function montoConPremio(p, precio) {
+  if (!precio) return null;
+  if (/gratis/i.test(p.titulo)) return 0;
+  const pct = p.titulo.match(/(\d+)\s*%/);
+  if (pct) return Math.round(precio * (100 - Number(pct[1])) / 100);
+  return null;
+}
+function pesos(n) {
+  return '$' + Number(n).toLocaleString('es-AR');
 }
 function tarjetaAbierta(cliente) {
   return (cliente.tarjetas || []).find((t) => t.estado === 'activa' || t.estado === 'completa');
@@ -616,8 +632,8 @@ async function entrar(usuario) {
   $('btn-admin').hidden = !esAdmin();
   const p = await db.from('premios').select('*').eq('activo', true).order('posicion');
   premios = p.data || [];
-  const conf = await db.from('configuracion').select('dias_vencimiento').eq('id', 1).maybeSingle();
-  if (conf.data) diasVencimiento = conf.data.dias_vencimiento;
+  const conf = await db.from('configuracion').select('dias_vencimiento, precio_corte').eq('id', 1).maybeSingle();
+  if (conf.data) { diasVencimiento = conf.data.dias_vencimiento; precioCorte = Number(conf.data.precio_corte) || 0; }
 
   // Si llegó escaneando el QR de un cliente, abrir directo su tarjeta
   const codigo = new URLSearchParams(location.search).get('c');
@@ -834,13 +850,15 @@ function dibujarCliente() {
     ? `<div class="proximo vencida"><strong>La tarjeta N° ${estado.anterior.numero} venció</strong>
        <span>No viene hace más de ${diasVencimiento} días y perdió sus ${estado.anterior.cortes} ${estado.anterior.cortes === 1 ? 'sello' : 'sellos'}. Este corte abre la tarjeta N° ${t.numero}.</span></div>`
     : '';
+  const montoHoy = premioHoy ? montoConPremio(premioHoy, precioCorte) : null;
   if (premioHoy) {
     $('proximo').innerHTML = avisoVencida + `<div class="proximo con-premio">
       <strong>Hoy es su corte N° ${siguiente}: ${esc(premioHoy.titulo)}</strong>
+      ${montoHoy !== null ? `<div class="monto">Cobrar ${pesos(montoHoy)} <s>${pesos(precioCorte)}</s></div>` : ''}
       <span>Aplicalo al cobrar. Se registra solo al marcar el corte.</span></div>`;
   } else {
     $('proximo').innerHTML = avisoVencida + `<div class="proximo">
-      <strong>Hoy es su corte N° ${siguiente}: precio normal</strong>
+      <strong>Hoy es su corte N° ${siguiente}: precio normal${precioCorte ? ' (' + pesos(precioCorte) + ')' : ''}</strong>
       <span>${proximoPremio ? `Próximo premio en el corte N° ${proximoPremio.posicion}: ${esc(proximoPremio.titulo)}.` : ''}</span></div>`;
   }
 
@@ -1204,6 +1222,7 @@ async function cargarReglas() {
   if (data) {
     $('regla-horas').value = data.horas_entre_cortes;
     $('regla-dias').value = data.dias_vencimiento;
+    $('regla-precio').value = data.precio_corte;
   }
 }
 $('form-reglas').addEventListener('submit', async (e) => {
@@ -1213,9 +1232,12 @@ $('form-reglas').addEventListener('submit', async (e) => {
   const dias = Number($('regla-dias').value);
   if (!(horas >= 0 && horas <= 72)) { $('reglas-error').textContent = 'Las horas van de 0 a 72.'; return; }
   if (!(dias >= 7 && dias <= 365)) { $('reglas-error').textContent = 'Los días van de 7 a 365.'; return; }
+  const precio = Number($('regla-precio').value);
+  if (!(Number.isInteger(precio) && precio >= 0)) { $('reglas-error').textContent = 'Poné el precio sin puntos ni comas, por ejemplo 12000.'; return; }
   const { error } = await db.from('configuracion')
-    .update({ horas_entre_cortes: horas, dias_vencimiento: dias }).eq('id', 1);
+    .update({ horas_entre_cortes: horas, dias_vencimiento: dias, precio_corte: precio }).eq('id', 1);
   if (error) { $('reglas-error').textContent = error.message; return; }
+  precioCorte = precio;
   avisar('Reglas guardadas.');
 });
 
@@ -1374,7 +1396,7 @@ $('btn-copia').addEventListener('click', async () => {
       traerTodo('anulaciones', 'cliente_id, tarjeta_numero, posicion, fecha_corte, anulado_por, fecha', 'fecha'),
       traerTodo('personal', 'id, nombre, rol, activo, creado_en', 'nombre'),
       traerTodo('premios', 'posicion, titulo, descripcion, activo', 'posicion'),
-      traerTodo('configuracion', 'horas_entre_cortes, dias_vencimiento'),
+      traerTodo('configuracion', 'horas_entre_cortes, dias_vencimiento, precio_corte'),
     ]);
 
     const persona = Object.fromEntries(equipo.map((p) => [p.id, p.nombre]));
@@ -1419,6 +1441,7 @@ $('btn-copia').addEventListener('click', async () => {
       })),
       Reglas: config.map((r) => ({
         'Horas entre cortes': r.horas_entre_cortes, 'Días para vencer': r.dias_vencimiento,
+        'Precio del corte': r.precio_corte,
       })),
     };
 
